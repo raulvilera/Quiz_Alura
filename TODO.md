@@ -14,6 +14,7 @@
 - [x] **Verificação do e-mail do professor:** O cadastro informa que a confirmação é obrigatória, o painel não é liberado para contas sem `email_confirmed_at` e o login de e-mails não confirmados é bloqueado com orientação para verificar a caixa de entrada.
 - [x] **Exibição de notas:** O resultado do aluno mostra a nota final de 0 a 10, junto dos acertos, percentual e pontos; o relatório do professor também ganhou uma coluna específica para a nota.
 - [x] **Relatório por trilha:** Cada tentativa do relatório agora detalha os acertos por trilha no formato acertos/total, preservando a nota final, o percentual e a data.
+- [x] **Relatório sanfonado por aluno:** O professor pode expandir cada aluno por uma seta, visualizar o número de tentativas e abrir o histórico de cada tentativa com nota final, acertos e erros em cada trilha.
 
 - [x] **Imagens animadas por categoria:** Cada pergunta deve exibir um fundo ilustrado correspondente ao tema — organização digital, programação/algoritmos ou redes sociais/cultura digital — com movimento suave de deslocamento/zoom, sobreposição escura para manter a leitura e respeito a prefers-reduced-motion.
 - [x] **Acesso simplificado às trilhas:** As trilhas aparecem antes da identificação, têm ação clicável desde o primeiro contato e, quando necessário, levam o foco diretamente ao campo de turma ou nome que falta. Após a identificação, o aluno recebe uma confirmação clara para iniciar qualquer trilha.
