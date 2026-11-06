@@ -1,17 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { questions, type Question } from "./data/questions";
 import { supabase } from "./supabase";
+import { isRussianStudent, localizeQuestion, ui, type Lang } from "./i18n";
 import "./styles.css";
 
 type Phase = "home" | "playing" | "result";
 type Category = "Tudo" | Question["category"];
 type AnswerRecord = { question: Question; correct: boolean; timedOut?: boolean };
 type RosterStatus = "idle" | "loading" | "ready" | "error";
-
-const classOptions = [
-  { label: "8º Ano A · Tarde", value: "8º ANO A TARDE" },
-  { label: "8º Ano B · Tarde", value: "8º ANO B TARDE" },
-];
 
 function getRosterName(entry: unknown): string {
   if (typeof entry === "string") return entry.trim();
@@ -58,13 +54,21 @@ function App() {
   const [score, setScore] = useState(0);
   const [records, setRecords] = useState<AnswerRecord[]>([]);
   const [streak, setStreak] = useState(0);
+  const [manualLang, setManualLang] = useState<Lang>("pt");
+
+  // A aluna Zlata faz o quiz inteiro em russo; os demais usam o idioma escolhido (padrão: português).
+  const russianOnly = isRussianStudent(selectedStudent);
+  const lang: Lang = russianOnly ? "ru" : manualLang;
+  const t = ui[lang];
 
   const canStart = Boolean(selectedClass && selectedStudent && rosterStatus === "ready");
-  const current = round[index];
+  const baseCurrent = round[index];
+  const current = baseCurrent ? localizeQuestion(baseCurrent, lang) : undefined;
   const total = round.length;
   const progress = total ? ((index + (revealed ? 1 : 0)) / total) * 100 : 0;
   const correctCount = records.filter((record) => record.correct).length;
   const percent = total ? Math.round((correctCount / total) * 100) : 0;
+  const level: "high" | "mid" | "low" = percent >= 80 ? "high" : percent >= 50 ? "mid" : "low";
   const isCorrect = current?.type === "open" ? null : selected === current?.answer;
   const currentRecord = current ? records.find((record) => record.question.id === current.id) : undefined;
 
@@ -100,6 +104,11 @@ function App() {
 
     return () => { cancelled = true; };
   }, [selectedClass, rosterReload]);
+
+  useEffect(() => {
+    document.documentElement.lang = t.htmlLang;
+    document.title = t.documentTitle;
+  }, [t]);
 
   useEffect(() => {
     if (phase === "playing") questionTitleRef.current?.focus();
@@ -227,48 +236,49 @@ function App() {
       <audio ref={musicRef} src="/quiz-loop.mp3" loop preload="none" aria-hidden="true" />
       <div className="noise" aria-hidden="true" />
       <header className="topbar">
-        <button className="brand" onClick={() => setPhase("home")} aria-label="Ir para o início">
+        <button className="brand" onClick={() => setPhase("home")} aria-label={t.brandAria}>
           <span className="brand-mark"><span>dd</span><i /></span>
-          <span className="brand-text">DESAFIO<span>DIGITAL</span></span>
+          <span className="brand-text">{t.brandA}<span>{t.brandB}</span></span>
         </button>
         <div className={`topbar-right ${phase === "playing" ? "game-topbar-right" : ""}`}>
-          <span className="grade-pill"><span className="live-dot" /> TECNOLOGIA · 8º ANO</span>
-          {phase === "playing" && <button className="music-toggle" onClick={toggleMusic} aria-pressed={musicEnabled} aria-label={musicEnabled ? "Silenciar trilha sonora" : "Ativar trilha sonora"}><span aria-hidden="true">{musicEnabled ? "♫" : "♪"}</span><span>{musicEnabled ? "Som ligado" : "Som desligado"}</span></button>}
-          {phase === "playing" && <span className="top-score"><span className="star">✳</span> {score.toLocaleString("pt-BR")}</span>}
+          <span className="grade-pill"><span className="live-dot" /> {t.gradePill}</span>
+          {phase === "playing" && <button className="music-toggle" onClick={toggleMusic} aria-pressed={musicEnabled} aria-label={musicEnabled ? t.muteAria : t.unmuteAria}><span aria-hidden="true">{musicEnabled ? "♫" : "♪"}</span><span>{musicEnabled ? t.soundOn : t.soundOff}</span></button>}
+          {phase === "playing" && <span className="top-score"><span className="star">✳</span> {score.toLocaleString(lang === "ru" ? "ru-RU" : "pt-BR")}</span>}
         </div>
       </header>
 
       {phase === "home" && (
         <section className="home-page simple-home">
           <div className="simple-card">
-            <p className="kicker"><span className="kicker-line" /> DESAFIO DIGITAL</p>
-            <h1>Vamos <span className="highlight">começar?</span></h1>
-            <p className="simple-sub">Escolha sua turma e seu nome. Depois é só entrar.</p>
+            {!russianOnly && <button type="button" className="lang-switch" onClick={() => setManualLang(lang === "pt" ? "ru" : "pt")} aria-label={t.langSwitchAria} lang={lang === "pt" ? "ru" : "pt"}>🌐 {t.langSwitchLabel}</button>}
+            <p className="kicker"><span className="kicker-line" /> {t.homeKicker}</p>
+            <h1>{t.homeTitlePre}<span className="highlight">{t.homeTitleHl}</span></h1>
+            <p className="simple-sub">{t.homeSub}</p>
 
             <div className="simple-fields">
               <div className="student-field">
-                <label htmlFor="student-class">1. Sua turma</label>
+                <label htmlFor="student-class">{t.classLabel}</label>
                 <select id="student-class" value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)}>
-                  <option value="">Selecione a turma</option>
-                  {classOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  <option value="">{t.classPlaceholder}</option>
+                  {t.classOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                 </select>
               </div>
               <div className="student-field">
-                <label htmlFor="student-name">2. Seu nome</label>
+                <label htmlFor="student-name">{t.nameLabel}</label>
                 <select id="student-name" value={selectedStudent} onChange={(event) => setSelectedStudent(event.target.value)} disabled={!selectedClass || rosterStatus !== "ready" || rosterNames.length === 0}>
-                  <option value="">{!selectedClass ? "Escolha primeiro a turma" : rosterStatus === "loading" ? "Carregando alunos…" : rosterStatus === "error" ? "Não foi possível carregar" : rosterNames.length ? "Selecione seu nome" : "Nenhum aluno encontrado"}</option>
+                  <option value="">{!selectedClass ? t.nameChooseClass : rosterStatus === "loading" ? t.nameLoading : rosterStatus === "error" ? t.nameError : rosterNames.length ? t.namePick : t.nameNone}</option>
                   {rosterNames.map((name, nameIndex) => <option key={`${name}-${nameIndex}`} value={name}>{name}</option>)}
                 </select>
               </div>
             </div>
 
             <div className="roster-status" role="status" aria-live="polite">
-              {rosterStatus === "loading" && <span>Buscando a lista da turma…</span>}
-              {rosterStatus === "error" && <><span>Não foi possível carregar os nomes. Verifique a conexão.</span><button type="button" onClick={() => setRosterReload((value) => value + 1)}>Tentar novamente</button></>}
+              {rosterStatus === "loading" && <span>{t.statusLoading}</span>}
+              {rosterStatus === "error" && <><span>{t.statusError}</span><button type="button" onClick={() => setRosterReload((value) => value + 1)}>{t.retry}</button></>}
             </div>
 
             <button className="start-button" onClick={() => startQuiz("Tudo")} disabled={!canStart} aria-disabled={!canStart}>
-              <span>{canStart ? `Entrar e responder as ${questions.length} questões` : "Escolha a turma e o nome para entrar"}</span>
+              <span>{canStart ? t.start(questions.length) : t.startDisabled}</span>
               <span aria-hidden="true">→</span>
             </button>
           </div>
@@ -278,36 +288,36 @@ function App() {
       {phase === "playing" && current && (
         <section className="game-page">
           <div className="game-toolbar">
-            <button className="back-button" onClick={() => setPhase("home")} aria-label="Voltar ao início">← <span>Sair do desafio</span></button>
-            <div className="game-context"><span>{current.category}</span><i>·</i><span>QUESTÃO {String(index + 1).padStart(2, "0")} <em>/ {String(total).padStart(2, "0")}</em></span></div>
-            <div className={`timer ${remaining <= 10 ? "timer-urgent" : ""}`} role="timer" aria-live="off" aria-label={`${remaining} segundos restantes`}><span className="timer-icon">◷</span><strong>00:{String(remaining).padStart(2, "0")}</strong></div>
-            <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{currentRecord?.timedOut ? "O tempo desta questão acabou." : !revealed && [30, 20, 10, 5].includes(remaining) ? `Restam ${remaining} segundos para responder.` : ""}</span>
+            <button className="back-button" onClick={() => setPhase("home")} aria-label={t.exitAria}>← <span>{t.exit}</span></button>
+            <div className="game-context"><span>{t.category[current.category]}</span><i>·</i><span>{t.question} {String(index + 1).padStart(2, "0")} <em>/ {String(total).padStart(2, "0")}</em></span></div>
+            <div className={`timer ${remaining <= 10 ? "timer-urgent" : ""}`} role="timer" aria-live="off" aria-label={t.timerAria(remaining)}><span className="timer-icon">◷</span><strong>00:{String(remaining).padStart(2, "0")}</strong></div>
+            <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{currentRecord?.timedOut ? t.srTimeUp : !revealed && [30, 20, 10, 5].includes(remaining) ? t.srRemaining(remaining) : ""}</span>
           </div>
-          <div className="progress-track" role="progressbar" aria-label="Progresso do quiz" aria-valuenow={index + (revealed ? 1 : 0)} aria-valuemin={0} aria-valuemax={total}><span style={{ width: `${progress}%` }} /></div>
+          <div className="progress-track" role="progressbar" aria-label={t.progressAria} aria-valuenow={index + (revealed ? 1 : 0)} aria-valuemin={0} aria-valuemax={total}><span style={{ width: `${progress}%` }} /></div>
           <div className="game-layout">
-            <aside className="game-rail"><span className="rail-number">{String(index + 1).padStart(2, "0")}</span><span className="rail-divider" /><span className="rail-total">{String(total).padStart(2, "0")}</span><span className="rail-caption">QUESTÃO</span></aside>
+            <aside className="game-rail"><span className="rail-number">{String(index + 1).padStart(2, "0")}</span><span className="rail-divider" /><span className="rail-total">{String(total).padStart(2, "0")}</span><span className="rail-caption">{t.question}</span></aside>
             <article className="question-column">
-              <div className="question-meta"><span className="question-tag">{current.type === "open" ? "RESPOSTA ABERTA" : current.type === "boolean" ? "VERDADEIRO OU FALSO" : current.category.toUpperCase()}</span><span className="keyboard-hint">{current.type !== "open" && <><kbd>1</kbd>–<kbd>{current.options?.length}</kbd> para responder</>}</span></div>
+              <div className="question-meta"><span className="question-tag">{current.type === "open" ? t.tagOpen : current.type === "boolean" ? t.tagBoolean : t.category[current.category].toUpperCase()}</span><span className="keyboard-hint">{current.type !== "open" && <><kbd>1</kbd>–<kbd>{current.options?.length}</kbd> {t.keyHint}</>}</span></div>
               <h1 ref={questionTitleRef} tabIndex={-1} className="question-title">{current.prompt}</h1>
 
               {current.type === "open" ? (
                 <div className="open-answer-area">
                   {!revealed ? (
                     <>
-                      <label htmlFor="open-answer">Sua resposta</label>
-                      <textarea id="open-answer" value={typedAnswer} onChange={(event) => setTypedAnswer(event.target.value)} maxLength={600} placeholder="Escreva sua ideia com suas palavras…" />
-                      <div className="input-footer"><span>{typedAnswer.length}/600</span><button className="submit-answer" onClick={submitOpenAnswer} disabled={!typedAnswer.trim()}>Conferir resposta <span>→</span></button></div>
+                      <label htmlFor="open-answer">{t.yourAnswer}</label>
+                      <textarea id="open-answer" value={typedAnswer} onChange={(event) => setTypedAnswer(event.target.value)} maxLength={600} placeholder={t.placeholder} />
+                      <div className="input-footer"><span>{typedAnswer.length}/600</span><button className="submit-answer" onClick={submitOpenAnswer} disabled={!typedAnswer.trim()}>{t.check} <span>→</span></button></div>
                     </>
                   ) : (
                     <div className="expected-answer">
-                      <span className="expected-label">RESPOSTA ESPERADA</span>
+                      <span className="expected-label">{t.expectedLabel}</span>
                       <p>{current.expected}</p>
                       {openNeedsSelfReview ? (
                         <>
-                          <span className="self-check-label">Compare com o que você escreveu:</span>
-                          <div className="self-check-actions"><button onClick={() => selfReviewOpen(true)}>Minha resposta contemplou esses pontos</button><button onClick={() => selfReviewOpen(false)}>Vou revisar esse conteúdo</button></div>
+                          <span className="self-check-label">{t.compare}</span>
+                          <div className="self-check-actions"><button onClick={() => selfReviewOpen(true)}>{t.selfYes}</button><button onClick={() => selfReviewOpen(false)}>{t.selfNo}</button></div>
                         </>
-                      ) : <span className="self-check-label">{currentRecord?.timedOut ? "O tempo acabou antes do envio." : "Autoavaliação registrada."}</span>}
+                      ) : <span className="self-check-label">{currentRecord?.timedOut ? t.timeUpBeforeSend : t.selfRecorded}</span>}
                     </div>
                   )}
                 </div>
@@ -319,42 +329,42 @@ function App() {
                     const isWrongSelected = revealed && isSelected && !isRight;
                     const stateClass = isRight ? "answer-correct" : isWrongSelected ? "answer-wrong" : revealed ? "answer-muted" : "";
                     return <button key={optionIndex} className={`answer-option ${stateClass}`} onClick={() => submitChoice(optionIndex)} disabled={revealed} aria-pressed={isSelected}>
-                      <span className="answer-letter">{current.options?.length === 2 ? (optionIndex === 0 ? "V" : "F") : LETTERS[optionIndex]}</span><span className="answer-text">{option}</span><span className="answer-check">{isRight ? "✓" : isWrongSelected ? "×" : ""}</span>
+                      <span className="answer-letter">{current.options?.length === 2 ? t.booleanLetters[optionIndex] : LETTERS[optionIndex]}</span><span className="answer-text">{option}</span><span className="answer-check">{isRight ? "✓" : isWrongSelected ? "×" : ""}</span>
                     </button>;
                   })}
                 </div>
               )}
 
-              {revealed && current.type !== "open" && <div className={`feedback-panel ${isCorrect ? "feedback-good" : "feedback-try"}`} role="status"><span className="feedback-symbol">{isCorrect ? "✓" : records[records.length - 1]?.timedOut ? "◷" : "↻"}</span><div className="feedback-copy"><strong>{records[records.length - 1]?.timedOut ? "O tempo acabou" : isCorrect ? "Boa! Você acertou." : "Quase! Vale aprender com essa."}</strong><p>{current.explanation}</p></div><button className="next-button" onClick={nextQuestion}>{index + 1 === total ? "Ver resultado" : "Próxima"}<span>→</span></button></div>}
-              {revealed && current.type === "open" && !openNeedsSelfReview && <div className={`feedback-panel ${currentRecord?.timedOut ? "feedback-try" : "feedback-good"}`} role="status"><span className="feedback-symbol">{currentRecord?.timedOut ? "◷" : "✓"}</span><div className="feedback-copy"><strong>{currentRecord?.timedOut ? "O tempo acabou." : "Resposta registrada."}</strong><p>{currentRecord?.timedOut ? "Confira os pontos esperados e use-os para revisar o tema." : "Sua autoavaliação foi incluída no placar. Compare sua ideia com os pontos esperados."}</p></div><button className="next-button" onClick={nextQuestion}>{index + 1 === total ? "Ver resultado" : "Próxima"}<span>→</span></button></div>}
+              {revealed && current.type !== "open" && <div className={`feedback-panel ${isCorrect ? "feedback-good" : "feedback-try"}`} role="status"><span className="feedback-symbol">{isCorrect ? "✓" : records[records.length - 1]?.timedOut ? "◷" : "↻"}</span><div className="feedback-copy"><strong>{records[records.length - 1]?.timedOut ? t.fbTimeUp : isCorrect ? t.fbGood : t.fbTry}</strong><p>{current.explanation}</p></div><button className="next-button" onClick={nextQuestion}>{index + 1 === total ? t.seeResult : t.next}<span>→</span></button></div>}
+              {revealed && current.type === "open" && !openNeedsSelfReview && <div className={`feedback-panel ${currentRecord?.timedOut ? "feedback-try" : "feedback-good"}`} role="status"><span className="feedback-symbol">{currentRecord?.timedOut ? "◷" : "✓"}</span><div className="feedback-copy"><strong>{currentRecord?.timedOut ? t.openTimeUp : t.openRecorded}</strong><p>{currentRecord?.timedOut ? t.openTimeUpHint : t.openRecordedHint}</p></div><button className="next-button" onClick={nextQuestion}>{index + 1 === total ? t.seeResult : t.next}<span>→</span></button></div>}
             </article>
-            <aside className="score-rail"><span className="score-star">✳</span><span className="score-value">{score.toLocaleString("pt-BR")}</span><span className="score-caption">PONTOS</span><span className="score-line" /><span className="streak-icon">⚡</span><span className="streak-value">{streak}</span><span className="score-caption">SEGUIDAS</span></aside>
+            <aside className="score-rail"><span className="score-star">✳</span><span className="score-value">{score.toLocaleString(lang === "ru" ? "ru-RU" : "pt-BR")}</span><span className="score-caption">{t.points}</span><span className="score-line" /><span className="streak-icon">⚡</span><span className="streak-value">{streak}</span><span className="score-caption">{t.streak}</span></aside>
           </div>
-          <div className="game-bottom"><span><span className="live-dot" /> RITMO DE JOGO</span><span>+ PONTOS POR ACERTO · BÔNUS DE VELOCIDADE</span></div>
+          <div className="game-bottom"><span><span className="live-dot" /> {t.bottomLeft}</span><span>{t.bottomRight}</span></div>
         </section>
       )}
 
       {phase === "result" && (
         <section className="result-page">
-          <p className="kicker"><span className="kicker-line" /> FIM DE JOGO</p>
+          <p className="kicker"><span className="kicker-line" /> {t.resultKicker}</p>
           <div className="result-grid">
             <div className="result-main">
               <div className="result-badge">{percent >= 80 ? "✦" : percent >= 50 ? "✳" : "↗"}</div>
-              <p className="result-label">{percent >= 80 ? "VOCÊ MANDOU MUITO" : percent >= 50 ? "BOM CAMINHO" : "CADA TENTATIVA ENSINA"}</p>
-              <h1>{percent >= 80 ? <>Que <span className="highlight">jogada!</span></> : percent >= 50 ? <>Tá no <span className="highlight">caminho.</span></> : <>Vamos de <span className="highlight">novo?</span></>}</h1>
-              <p className="result-copy">{percent >= 80 ? "Seu conhecimento digital está afiado. Compartilhe essa conquista consigo mesmo e siga curioso." : "Revisar também faz parte do jogo. Veja onde pode fortalecer o que aprendeu e tente novamente."}</p>
-              <div className="result-actions"><button className="primary-button" onClick={() => startQuiz(category)}>Jogar de novo <span>↻</span></button><button className="text-button" onClick={() => setPhase("home")}>Voltar ao início <span>→</span></button></div>
+              <p className="result-label">{t.resultLabel[level]}</p>
+              <h1>{t.resultTitle[level].pre}<span className="highlight">{t.resultTitle[level].hl}</span></h1>
+              <p className="result-copy">{percent >= 80 ? t.resultCopyHigh : t.resultCopyLow}</p>
+              <div className="result-actions"><button className="primary-button" onClick={() => startQuiz(category)}>{t.playAgain} <span>↻</span></button><button className="text-button" onClick={() => setPhase("home")}>{t.backHome} <span>→</span></button></div>
             </div>
             <div className="result-card">
-              <span className="result-card-label">SEU PLACAR</span><div className="big-score">{score.toLocaleString("pt-BR")}<span>pts</span></div><div className="result-rule" />
-              <div className="stat-row"><span>Respostas certas</span><strong>{correctCount}<small> / {total}</small></strong></div>
-              <div className="stat-row"><span>Aproveitamento</span><strong>{percent}<small>%</small></strong></div>
+              <span className="result-card-label">{t.scoreLabel}</span><div className="big-score">{score.toLocaleString(lang === "ru" ? "ru-RU" : "pt-BR")}<span>{t.pts}</span></div><div className="result-rule" />
+              <div className="stat-row"><span>{t.correctAnswers}</span><strong>{correctCount}<small> / {total}</small></strong></div>
+              <div className="stat-row"><span>{t.percentLabel}</span><strong>{percent}<small>%</small></strong></div>
               <div className="mini-progress"><span style={{ width: `${percent}%` }} /></div>
-              <div className="result-rule" /><span className="review-label">PARA REVISAR</span>
-              {groupedMisses.length ? groupedMisses.map(([name, missed]) => <div className="review-row" key={name}><span>{name}</span><strong>{missed}</strong></div>) : <p className="perfect-note">Tudo certo por aqui. Que tal outra trilha?</p>}
+              <div className="result-rule" /><span className="review-label">{t.review}</span>
+              {groupedMisses.length ? groupedMisses.map(([name, missed]) => <div className="review-row" key={name}><span>{t.category[name as keyof typeof t.category]}</span><strong>{missed}</strong></div>) : <p className="perfect-note">{t.perfect}</p>}
             </div>
           </div>
-          <footer className="home-footer"><span>DESAFIO DIGITAL · TECNOLOGIA E INOVAÇÃO</span><span>APRENDER É JOGAR</span></footer>
+          <footer className="home-footer"><span>{t.footerA}</span><span>{t.footerB}</span></footer>
         </section>
       )}
     </main>
