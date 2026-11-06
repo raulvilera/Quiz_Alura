@@ -94,7 +94,6 @@ function App() {
   const [studentLinkCopied, setStudentLinkCopied] = useState(false);
   const [studentLinkCopyError, setStudentLinkCopyError] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
-  const [installHelpOpen, setInstallHelpOpen] = useState(false);
   const studentLinkInputRef = useRef<HTMLInputElement>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const savedAttemptRef = useRef<string | null>(null);
@@ -224,18 +223,14 @@ function App() {
   }, [studentLink]);
 
   const installApp = useCallback(async () => {
-    if (!installPrompt) {
-      setInstallHelpOpen(true);
-      return;
-    }
+    if (!installPrompt) return;
     try {
       await installPrompt.prompt();
       const choice = await installPrompt.userChoice;
       setInstallPrompt(null);
-      if (choice.outcome === "dismissed") setInstallHelpOpen(true);
+      if (choice.outcome === "dismissed") return;
     } catch {
       setInstallPrompt(null);
-      setInstallHelpOpen(true);
     }
   }, [installPrompt]);
 
@@ -465,13 +460,11 @@ function App() {
         <div className={`topbar-right ${phase === "playing" ? "game-topbar-right" : ""}`}>
           <span className="grade-pill"><span className="live-dot" /> TECNOLOGIA · 8º ANO</span>
           {phase !== "playing" && <button className="teacher-access-button" onClick={() => setPhase("teacher")}>{teacherUser ? "Painel do professor" : "Área do professor"}<span>↗</span></button>}
-          {phase !== "playing" && <button className="install-app-button" onClick={() => void installApp}>{installPrompt ? "Instalar aplicativo" : "Como instalar"}<span>{installPrompt ? "↓" : "?"}</span></button>}
+          {phase !== "playing" && installPrompt && <button className="install-app-button" onClick={() => void installApp}>Instalar aplicativo<span>↓</span></button>}
           {phase === "playing" && <button className="music-toggle" onClick={toggleMusic} aria-pressed={musicEnabled} aria-label={musicEnabled ? "Silenciar trilha sonora" : "Ativar trilha sonora"}><span aria-hidden="true">{musicEnabled ? "♫" : "♪"}</span><span>{musicEnabled ? "Som ligado" : "Som desligado"}</span></button>}
           {phase === "playing" && <span className="top-score"><span className="star">✳</span> {score.toLocaleString("pt-BR")}</span>}
         </div>
       </header>
-
-      {installHelpOpen && <div className="install-help-backdrop" role="presentation" onClick={() => setInstallHelpOpen(false)}><section className="install-help-card" role="dialog" aria-modal="true" aria-labelledby="install-help-title" onClick={(event) => event.stopPropagation()}><button type="button" className="install-help-close" onClick={() => setInstallHelpOpen(false)} aria-label="Fechar instruções">×</button><p className="section-eyebrow">APLICATIVO DO QUIZ</p><h2 id="install-help-title">Instale na tela inicial</h2><p className="install-help-intro">O navegador não liberou o instalador automático nesta sessão. Use o menu do seu celular:</p><div className="install-help-step"><strong>Android · Chrome</strong><span>Toque em <b>⋮</b> → <b>Adicionar à tela inicial</b> ou <b>Instalar aplicativo</b>.</span></div><div className="install-help-step"><strong>iPhone · Safari</strong><span>Toque em <b>Compartilhar</b> → <b>Adicionar à Tela de Início</b> → <b>Adicionar</b>.</span></div><p className="install-help-url">Endereço dos alunos: <b>{window.location.origin}/?modo=aluno</b></p></section></div>}
 
       {phase === "teacher" && (
         <section className="teacher-page">
