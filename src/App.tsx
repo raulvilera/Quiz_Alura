@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { questions, type Question } from "./data/questions";
 import { TURMAS, novoId, registrarResultado, type Turma } from "./lib/supabase";
+import { aquecerRoster, carregarAlunos } from "./lib/roster";
 import "./styles.css";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -61,8 +62,47 @@ function App() {
   const [turma, setTurma] = useState<Turma | null>(() => readProfile().turma);
   const [studentName, setStudentName] = useState(() => readProfile().nome);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [alunos, setAlunos] = useState<string[]>([]);
+  const [rosterStatus, setRosterStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [manualName, setManualName] = useState(false);
+  const [rosterTry, setRosterTry] = useState(0);
   const roundIdRef = useRef("");
   const profileReady = turma !== null && studentName.trim().length >= 3;
+  const typingName = rosterStatus === "error" || manualName || (rosterStatus === "ready" && studentName !== "" && !alunos.includes(studentName));
+
+  const chooseTurma = (item: Turma) => {
+    if (item === turma) return;
+    setTurma(item);
+    setStudentName("");
+    setManualName(false);
+  };
+
+  useEffect(() => {
+    aquecerRoster();
+  }, []);
+
+  useEffect(() => {
+    if (!turma) {
+      setAlunos([]);
+      setRosterStatus("idle");
+      return;
+    }
+    let cancelled = false;
+    setAlunos([]);
+    setRosterStatus("loading");
+    carregarAlunos(turma)
+      .then((nomes) => {
+        if (cancelled) return;
+        setAlunos(nomes);
+        setRosterStatus(nomes.length ? "ready" : "error");
+      })
+      .catch(() => {
+        if (!cancelled) setRosterStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [turma, rosterTry]);
 
   useEffect(() => {
     try {
@@ -268,7 +308,7 @@ function App() {
               <p className="section-eyebrow">1 · SUA TURMA</p>
               <div className="turma-options" role="radiogroup" aria-label="Escolha sua turma">
                 {TURMAS.map((item) => (
-                  <button key={item} type="button" role="radio" aria-checked={turma === item} className={`turma-option${turma === item ? " selected" : ""}`} onClick={() => setTurma(item)}>
+                  <button key={item} type="button" role="radio" aria-checked={turma === item} className={`turma-option${turma === item ? " selected" : ""}`} onClick={() => chooseTurma(item)}>
                     <strong>{item.replace("Ano ", "ANO ")}</strong><span>{turma === item ? "✓ selecionada" : "toque para escolher"}</span>
                   </button>
                 ))}
@@ -276,9 +316,24 @@ function App() {
             </div>
             <div className="student-field">
               <label className="section-eyebrow" htmlFor="student-name">2 · SEU NOME</label>
-              <input id="student-name" className="student-input" value={studentName} onChange={(event) => setStudentName(event.target.value)} maxLength={120} autoComplete="name" placeholder="Nome e sobrenome" />
+              {typingName ? (
+                <>
+                  <input id="student-name" className="student-input" value={studentName} onChange={(event) => setStudentName(event.target.value)} maxLength={120} autoComplete="name" placeholder="Nome e sobrenome" />
+                  <p className="student-aside" role="status">
+                    {rosterStatus === "error" ? "Não consegui carregar a lista da turma. Digite seu nome completo. " : ""}
+                    {rosterStatus === "error" && <button type="button" onClick={() => setRosterTry((value) => value + 1)}>Carregar a lista de novo</button>}
+                    {rosterStatus !== "error" && <button type="button" onClick={() => { setManualName(false); setStudentName(""); }}>← Voltar para a lista da turma</button>}
+                  </p>
+                </>
+              ) : (
+                <select id="student-name" className="student-input" value={studentName} disabled={rosterStatus !== "ready"} onChange={(event) => { if (event.target.value === "__outro__") { setManualName(true); setStudentName(""); } else setStudentName(event.target.value); }}>
+                  <option value="">{!turma ? "Escolha a turma primeiro" : rosterStatus === "loading" ? "Carregando nomes…" : "Selecione seu nome"}</option>
+                  {alunos.map((nome) => <option key={nome} value={nome}>{nome}</option>)}
+                  {rosterStatus === "ready" && <option value="__outro__">Meu nome não está na lista…</option>}
+                </select>
+              )}
             </div>
-            <p className="student-hint" role="status">{profileReady ? "Tudo pronto! Escolha uma trilha abaixo." : "Escolha a turma e escreva seu nome para liberar as trilhas."}</p>
+            <p className="student-hint" role="status">{profileReady ? "Tudo pronto! Escolha uma trilha abaixo." : "Escolha a turma e depois o seu nome na lista para liberar as trilhas."}</p>
           </div>
 
           <div className="selection-heading">
