@@ -89,6 +89,7 @@ function App() {
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportsError, setReportsError] = useState("");
   const [studentLinkCopied, setStudentLinkCopied] = useState(false);
+  const [studentLinkCopyError, setStudentLinkCopyError] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const savedAttemptRef = useRef<string | null>(null);
 
@@ -146,9 +147,34 @@ function App() {
 
   const studentLink = `${window.location.origin}${window.location.pathname}?modo=aluno`;
   const copyStudentLink = useCallback(async () => {
-    await navigator.clipboard.writeText(studentLink);
-    setStudentLinkCopied(true);
-    window.setTimeout(() => setStudentLinkCopied(false), 2200);
+    let copied = false;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(studentLink);
+        copied = true;
+      }
+    } catch {
+      copied = false;
+    }
+    if (!copied) {
+      const fallback = document.createElement("textarea");
+      fallback.value = studentLink;
+      fallback.setAttribute("readonly", "");
+      fallback.style.position = "fixed";
+      fallback.style.opacity = "0";
+      document.body.appendChild(fallback);
+      fallback.select();
+      fallback.setSelectionRange(0, fallback.value.length);
+      try {
+        copied = document.execCommand("copy");
+      } catch {
+        copied = false;
+      }
+      document.body.removeChild(fallback);
+    }
+    setStudentLinkCopied(copied);
+    setStudentLinkCopyError(!copied);
+    if (copied) window.setTimeout(() => setStudentLinkCopied(false), 2200);
   }, [studentLink]);
 
   useEffect(() => {
@@ -380,7 +406,7 @@ function App() {
           ) : (
             <>
               <div className="teacher-heading"><div><p className="kicker"><span className="kicker-line" /> PAINEL DO PROFESSOR</p><h1>Desempenho da <span className="highlight">turma.</span></h1><p>Resultados registrados pelos alunos no quiz completo.</p></div><div className="teacher-actions"><span>{teacherUser.email}</span><button className="text-button" onClick={teacherSignOut}>Sair <span>↗</span></button></div></div>
-              <div className="student-link-card"><div><p className="section-eyebrow">ACESSO DOS ALUNOS</p><h2>Compartilhe o link do quiz</h2><p>Envie este endereço para os alunos. Eles entrarão diretamente na identificação da turma e do nome.</p></div><div className="student-link-actions"><input aria-label="Link de acesso dos alunos" value={studentLink} readOnly /><button className="primary-button" onClick={() => void copyStudentLink}>{studentLinkCopied ? "Link copiado" : "Copiar link"}<span>{studentLinkCopied ? "✓" : "↗"}</span></button><a className="text-button" href={studentLink} target="_blank" rel="noreferrer">Abrir área dos alunos <span>↗</span></a></div></div>
+              <div className="student-link-card"><div><p className="section-eyebrow">ACESSO DOS ALUNOS</p><h2>Compartilhe o link do quiz</h2><p>Envie este endereço para os alunos. Eles entrarão diretamente na identificação da turma e do nome.</p></div><div className="student-link-actions"><input aria-label="Link de acesso dos alunos" value={studentLink} readOnly onFocus={(event) => event.currentTarget.select()} /><button className="primary-button" onClick={() => void copyStudentLink}>{studentLinkCopied ? "Link copiado" : "Copiar link"}<span>{studentLinkCopied ? "✓" : "↗"}</span></button><a className="text-button" href={studentLink} target="_blank" rel="noreferrer">Abrir área dos alunos <span>↗</span></a>{studentLinkCopyError && <span className="student-link-error" role="alert">Não foi possível copiar automaticamente. Selecione o endereço acima e use Ctrl+C.</span>}</div></div>
               <div className="teacher-summary">{classSummary.map((item) => <article className="teacher-summary-card" key={item.value}><span>{item.label}</span><strong>{item.average}%</strong><small>{item.attempts} tentativas · {item.students} alunos</small></article>)}</div>
               <div className="report-card"><div className="report-card-heading"><div><p className="section-eyebrow">VISÃO INDIVIDUAL</p><h2>Últimas tentativas</h2></div><button className="text-button" onClick={() => void loadReports()}>Atualizar <span>↻</span></button></div>{reportsLoading ? <p className="report-empty">Carregando resultados…</p> : reportsError ? <p className="teacher-message teacher-error">{reportsError}</p> : reports.length === 0 ? <p className="report-empty">Ainda não há tentativas registradas.</p> : <div className="report-table-wrap"><table className="report-table"><thead><tr><th>Aluno</th><th>Turma</th><th>Acertos</th><th>Aproveitamento</th><th>Data</th></tr></thead><tbody>{reports.map((report) => <tr key={report.id}><td><strong>{report.student_name}</strong></td><td>{report.class_name.replace("8º ANO ", "")}</td><td>{report.correct_answers} / {report.total_questions}</td><td><span className="report-percent">{report.percentage}%</span><div className="mini-progress"><span style={{ width: `${report.percentage}%` }} /></div></td><td>{new Date(report.created_at).toLocaleDateString("pt-BR")}</td></tr>)}</tbody></table></div>}</div>
             </>
