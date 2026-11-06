@@ -4,5 +4,5 @@ import { createClient } from "@supabase/supabase-js";
 export const supabase = createClient(
   "https://ykrjfjepnqeoqlgupsbe.supabase.co",
   "sb_publishable_FbMU5x7WBpxzHmmVzOfh2g_0M1xxAh5",
-  { auth: { persistSession: false, autoRefreshToken: false } },
+  { auth: { persistSession: true, autoRefreshToken: true } },
 );

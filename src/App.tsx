@@ -1,12 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
+import type { User } from "@supabase/supabase-js";
 import { questions, type Question } from "./data/questions";
 import { supabase } from "./supabase";
 import "./styles.css";
 
-type Phase = "home" | "playing" | "result";
+type Phase = "home" | "playing" | "result" | "teacher";
 type Category = "Tudo" | Question["category"];
 type AnswerRecord = { question: Question; correct: boolean; timedOut?: boolean };
 type RosterStatus = "idle" | "loading" | "ready" | "error";
+type TeacherMode = "login" | "signup";
+type ReportRow = {
+  id: string;
+  student_name: string;
+  class_name: string;
+  score: number;
+  total_questions: number;
+  correct_answers: number;
+  percentage: number;
+  created_at: string;
+};
 
 const classOptions = [
   { label: "8º Ano A · Tarde", value: "8º ANO A TARDE" },
@@ -64,6 +77,18 @@ function App() {
   const [score, setScore] = useState(0);
   const [records, setRecords] = useState<AnswerRecord[]>([]);
   const [streak, setStreak] = useState(0);
+  const [teacherMode, setTeacherMode] = useState<TeacherMode>("login");
+  const [teacherUser, setTeacherUser] = useState<User | null>(null);
+  const [teacherEmail, setTeacherEmail] = useState("");
+  const [teacherPassword, setTeacherPassword] = useState("");
+  const [teacherLoading, setTeacherLoading] = useState(false);
+  const [teacherError, setTeacherError] = useState("");
+  const [teacherNotice, setTeacherNotice] = useState("");
+  const [reports, setReports] = useState<ReportRow[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportsError, setReportsError] = useState("");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const savedAttemptRef = useRef<string | null>(null);
 
   const current = round[index];
   const total = round.length;
@@ -72,6 +97,50 @@ function App() {
   const percent = total ? Math.round((correctCount / total) * 100) : 0;
   const isCorrect = current?.type === "open" ? null : selected === current?.answer;
   const currentRecord = current ? records.find((record) => record.question.id === current.id) : undefined;
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => setTeacherUser(data.session?.user ?? null));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setTeacherUser(session?.user ?? null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const loadReports = useCallback(async () => {
+    if (!teacherUser) return;
+    setReportsLoading(true);
+    setReportsError("");
+    const { data, error } = await supabase
+      .from("quiz_attempts")
+      .select("id, student_name, class_name, score, total_questions, correct_answers, percentage, created_at")
+      .order("created_at", { ascending: false });
+    if (error) setReportsError("Não foi possível carregar os relatórios. Verifique se a migração do Supabase foi executada.");
+    else setReports((data ?? []) as ReportRow[]);
+    setReportsLoading(false);
+  }, [teacherUser]);
+
+  useEffect(() => {
+    if (phase === "teacher" && teacherUser) void loadReports();
+  }, [phase, teacherUser, loadReports]);
+
+  const teacherSubmit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setTeacherLoading(true);
+    setTeacherError("");
+    setTeacherNotice("");
+    const action = teacherMode === "login" ? supabase.auth.signInWithPassword({ email: teacherEmail.trim(), password: teacherPassword }) : supabase.auth.signUp({ email: teacherEmail.trim(), password: teacherPassword });
+    const { data, error } = await action;
+    if (error) setTeacherError(error.message.includes("Invalid login") ? "E-mail ou senha incorretos." : error.message);
+    else if (teacherMode === "signup" && !data.session) setTeacherNotice("Cadastro realizado. Confirme seu e-mail para liberar o acesso do professor.");
+    else setPhase("teacher");
+    setTeacherLoading(false);
+  }, [teacherEmail, teacherMode, teacherPassword]);
+
+  const teacherSignOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    setReports([]);
+    setPhase("home");
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,12 +197,30 @@ function App() {
     setScore(0);
     setRecords([]);
     setStreak(0);
+    setSaveStatus("idle");
+    savedAttemptRef.current = null;
     if (musicEnabled && musicRef.current) {
       musicRef.current.volume = 0.18;
       void musicRef.current.play().catch(() => {});
     }
     setPhase("playing");
   }, [musicEnabled, selectedClass, selectedStudent]);
+
+  useEffect(() => {
+    if (phase !== "result" || !total || records.length !== total || savedAttemptRef.current) return;
+    const attemptKey = `${selectedClass}:${selectedStudent}:${round.map((question) => question.id).join(",")}:${records.length}`;
+    savedAttemptRef.current = attemptKey;
+    setSaveStatus("saving");
+    void supabase.from("quiz_attempts").insert({
+      student_name: selectedStudent,
+      class_name: selectedClass,
+      score,
+      total_questions: total,
+      correct_answers: correctCount,
+      percentage: percent,
+      answers: records.map(({ question, correct, timedOut }) => ({ question_id: question.id, category: question.category, correct, timed_out: Boolean(timedOut) })),
+    }).then(({ error }) => setSaveStatus(error ? "error" : "saved"));
+  }, [correctCount, percent, phase, records, round, score, selectedClass, selectedStudent, total]);
 
   const toggleMusic = useCallback(() => {
     const audio = musicRef.current;
@@ -227,6 +314,12 @@ function App() {
     return [...map.entries()];
   }, [records]);
 
+  const classSummary = useMemo(() => classOptions.map((item) => {
+    const classReports = reports.filter((report) => report.class_name === item.value);
+    const average = classReports.length ? Math.round(classReports.reduce((sum, report) => sum + report.percentage, 0) / classReports.length) : 0;
+    return { ...item, attempts: classReports.length, average, students: new Set(classReports.map((report) => report.student_name)).size };
+  }), [reports]);
+
   const focusStudentStep = useCallback(() => {
     studentPickerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     window.setTimeout(() => {
@@ -253,10 +346,39 @@ function App() {
         </button>
         <div className={`topbar-right ${phase === "playing" ? "game-topbar-right" : ""}`}>
           <span className="grade-pill"><span className="live-dot" /> TECNOLOGIA · 8º ANO</span>
+          {phase !== "playing" && <button className="teacher-access-button" onClick={() => setPhase("teacher")}>{teacherUser ? "Painel do professor" : "Área do professor"}<span>↗</span></button>}
           {phase === "playing" && <button className="music-toggle" onClick={toggleMusic} aria-pressed={musicEnabled} aria-label={musicEnabled ? "Silenciar trilha sonora" : "Ativar trilha sonora"}><span aria-hidden="true">{musicEnabled ? "♫" : "♪"}</span><span>{musicEnabled ? "Som ligado" : "Som desligado"}</span></button>}
           {phase === "playing" && <span className="top-score"><span className="star">✳</span> {score.toLocaleString("pt-BR")}</span>}
         </div>
       </header>
+
+      {phase === "teacher" && (
+        <section className="teacher-page">
+          {!teacherUser ? (
+            <div className="teacher-auth-card">
+              <p className="kicker"><span className="kicker-line" /> ÁREA RESTRITA</p>
+              <h1>{teacherMode === "login" ? <>Entrar no <span className="highlight">painel.</span></> : <>Criar acesso de <span className="highlight">professor.</span></>}</h1>
+              <p className="teacher-copy">Acompanhe o desempenho dos alunos por tentativa, estudante e turma.</p>
+              <form className="teacher-form" onSubmit={teacherSubmit}>
+                <label htmlFor="teacher-email">E-mail</label><input id="teacher-email" type="email" value={teacherEmail} onChange={(event) => setTeacherEmail(event.target.value)} placeholder="professor@escola.com" required autoComplete="email" />
+                <label htmlFor="teacher-password">Senha</label><input id="teacher-password" type="password" value={teacherPassword} onChange={(event) => setTeacherPassword(event.target.value)} placeholder="Mínimo de 6 caracteres" minLength={6} required autoComplete={teacherMode === "login" ? "current-password" : "new-password"} />
+                {teacherError && <p className="teacher-message teacher-error" role="alert">{teacherError}</p>}
+                {teacherNotice && <p className="teacher-message teacher-success" role="status">{teacherNotice}</p>}
+                <button className="primary-button teacher-submit" type="submit" disabled={teacherLoading}>{teacherLoading ? "Aguarde…" : teacherMode === "login" ? "Entrar no painel" : "Criar cadastro"}<span>→</span></button>
+              </form>
+              <button className="text-button teacher-switch" onClick={() => { setTeacherMode(teacherMode === "login" ? "signup" : "login"); setTeacherError(""); setTeacherNotice(""); }}>{teacherMode === "login" ? "Ainda não tenho cadastro" : "Já tenho cadastro"}<span>↗</span></button>
+              <button className="text-button" onClick={() => setPhase("home")}>Voltar para o quiz <span>→</span></button>
+            </div>
+          ) : (
+            <>
+              <div className="teacher-heading"><div><p className="kicker"><span className="kicker-line" /> PAINEL DO PROFESSOR</p><h1>Desempenho da <span className="highlight">turma.</span></h1><p>Resultados registrados pelos alunos no quiz completo.</p></div><div className="teacher-actions"><span>{teacherUser.email}</span><button className="text-button" onClick={teacherSignOut}>Sair <span>↗</span></button></div></div>
+              <div className="teacher-summary">{classSummary.map((item) => <article className="teacher-summary-card" key={item.value}><span>{item.label}</span><strong>{item.average}%</strong><small>{item.attempts} tentativas · {item.students} alunos</small></article>)}</div>
+              <div className="report-card"><div className="report-card-heading"><div><p className="section-eyebrow">VISÃO INDIVIDUAL</p><h2>Últimas tentativas</h2></div><button className="text-button" onClick={() => void loadReports()}>Atualizar <span>↻</span></button></div>{reportsLoading ? <p className="report-empty">Carregando resultados…</p> : reportsError ? <p className="teacher-message teacher-error">{reportsError}</p> : reports.length === 0 ? <p className="report-empty">Ainda não há tentativas registradas.</p> : <div className="report-table-wrap"><table className="report-table"><thead><tr><th>Aluno</th><th>Turma</th><th>Acertos</th><th>Aproveitamento</th><th>Data</th></tr></thead><tbody>{reports.map((report) => <tr key={report.id}><td><strong>{report.student_name}</strong></td><td>{report.class_name.replace("8º ANO ", "")}</td><td>{report.correct_answers} / {report.total_questions}</td><td><span className="report-percent">{report.percentage}%</span><div className="mini-progress"><span style={{ width: `${report.percentage}%` }} /></div></td><td>{new Date(report.created_at).toLocaleDateString("pt-BR")}</td></tr>)}</tbody></table></div>}</div>
+              <button className="text-button" onClick={() => setPhase("home")}>Voltar para o quiz <span>→</span></button>
+            </>
+          )}
+        </section>
+      )}
 
       {phase === "home" && (
         <section className="home-page">
@@ -372,7 +494,8 @@ function App() {
               <p className="result-label">{percent >= 80 ? "VOCÊ MANDOU MUITO" : percent >= 50 ? "BOM CAMINHO" : "CADA TENTATIVA ENSINA"}</p>
               <h1>{percent >= 80 ? <>Que <span className="highlight">jogada!</span></> : percent >= 50 ? <>Tá no <span className="highlight">caminho.</span></> : <>Vamos de <span className="highlight">novo?</span></>}</h1>
               <p className="result-copy">{percent >= 80 ? "Seu conhecimento digital está afiado. Compartilhe essa conquista consigo mesmo e siga curioso." : "Revisar também faz parte do jogo. Veja onde pode fortalecer o que aprendeu e tente novamente."}</p>
-              <div className="result-actions"><button className="primary-button" onClick={() => startQuiz(category)}>Jogar esta trilha de novo <span>↻</span></button><button className="text-button" onClick={() => setPhase("home")}>Escolher outra trilha <span>→</span></button></div>
+              <div className="result-actions"><button className="primary-button" onClick={() => startQuiz(category)}>Jogar novamente <span>↻</span></button><button className="text-button" onClick={() => setPhase("home")}>Voltar ao início <span>→</span></button></div>
+              <p className={`result-save-status result-save-${saveStatus}`} role="status">{saveStatus === "saving" ? "Salvando seu resultado…" : saveStatus === "saved" ? "Resultado enviado para o relatório do professor." : saveStatus === "error" ? "Não foi possível enviar este resultado agora." : ""}</p>
             </div>
             <div className="result-card">
               <span className="result-card-label">SEU PLACAR</span><div className="big-score">{score.toLocaleString("pt-BR")}<span>pts</span></div><div className="result-rule" />
