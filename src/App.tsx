@@ -54,12 +54,13 @@ function shuffle<T>(items: T[]): T[] {
 }
 
 function App() {
+  const studentMode = new URLSearchParams(window.location.search).get("modo") === "aluno";
   const questionTitleRef = useRef<HTMLHeadingElement>(null);
   const musicRef = useRef<HTMLAudioElement>(null);
   const studentPickerRef = useRef<HTMLElement>(null);
   const studentClassRef = useRef<HTMLSelectElement>(null);
   const studentNameRef = useRef<HTMLSelectElement>(null);
-  const [phase, setPhase] = useState<Phase>("home");
+  const [phase, setPhase] = useState<Phase>(studentMode ? "home" : "teacher");
   const [musicEnabled, setMusicEnabled] = useState(true);
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedStudent, setSelectedStudent] = useState("");
@@ -87,6 +88,7 @@ function App() {
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportsError, setReportsError] = useState("");
+  const [studentLinkCopied, setStudentLinkCopied] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const savedAttemptRef = useRef<string | null>(null);
 
@@ -139,8 +141,15 @@ function App() {
   const teacherSignOut = useCallback(async () => {
     await supabase.auth.signOut();
     setReports([]);
-    setPhase("home");
+    setPhase("teacher");
   }, []);
+
+  const studentLink = `${window.location.origin}${window.location.pathname}?modo=aluno`;
+  const copyStudentLink = useCallback(async () => {
+    await navigator.clipboard.writeText(studentLink);
+    setStudentLinkCopied(true);
+    window.setTimeout(() => setStudentLinkCopied(false), 2200);
+  }, [studentLink]);
 
   useEffect(() => {
     let cancelled = false;
@@ -340,7 +349,7 @@ function App() {
       <audio ref={musicRef} src="/quiz-loop.mp3" loop preload="none" aria-hidden="true" />
       <div className="noise" aria-hidden="true" />
       <header className="topbar">
-        <button className="brand" onClick={() => setPhase("home")} aria-label="Ir para o início">
+          <button className="brand" onClick={() => setPhase(studentMode ? "home" : "teacher")} aria-label={studentMode ? "Ir para o início" : "Abrir login do professor"}>
           <span className="brand-mark"><span>dd</span><i /></span>
           <span className="brand-text">DESAFIO<span>DIGITAL</span></span>
         </button>
@@ -367,14 +376,13 @@ function App() {
                 <button className="primary-button teacher-submit" type="submit" disabled={teacherLoading}>{teacherLoading ? "Aguarde…" : teacherMode === "login" ? "Entrar no painel" : "Criar cadastro"}<span>→</span></button>
               </form>
               <button className="text-button teacher-switch" onClick={() => { setTeacherMode(teacherMode === "login" ? "signup" : "login"); setTeacherError(""); setTeacherNotice(""); }}>{teacherMode === "login" ? "Ainda não tenho cadastro" : "Já tenho cadastro"}<span>↗</span></button>
-              <button className="text-button" onClick={() => setPhase("home")}>Voltar para o quiz <span>→</span></button>
             </div>
           ) : (
             <>
               <div className="teacher-heading"><div><p className="kicker"><span className="kicker-line" /> PAINEL DO PROFESSOR</p><h1>Desempenho da <span className="highlight">turma.</span></h1><p>Resultados registrados pelos alunos no quiz completo.</p></div><div className="teacher-actions"><span>{teacherUser.email}</span><button className="text-button" onClick={teacherSignOut}>Sair <span>↗</span></button></div></div>
+              <div className="student-link-card"><div><p className="section-eyebrow">ACESSO DOS ALUNOS</p><h2>Compartilhe o link do quiz</h2><p>Envie este endereço para os alunos. Eles entrarão diretamente na identificação da turma e do nome.</p></div><div className="student-link-actions"><input aria-label="Link de acesso dos alunos" value={studentLink} readOnly /><button className="primary-button" onClick={() => void copyStudentLink}>{studentLinkCopied ? "Link copiado" : "Copiar link"}<span>{studentLinkCopied ? "✓" : "↗"}</span></button><a className="text-button" href={studentLink} target="_blank" rel="noreferrer">Abrir área dos alunos <span>↗</span></a></div></div>
               <div className="teacher-summary">{classSummary.map((item) => <article className="teacher-summary-card" key={item.value}><span>{item.label}</span><strong>{item.average}%</strong><small>{item.attempts} tentativas · {item.students} alunos</small></article>)}</div>
               <div className="report-card"><div className="report-card-heading"><div><p className="section-eyebrow">VISÃO INDIVIDUAL</p><h2>Últimas tentativas</h2></div><button className="text-button" onClick={() => void loadReports()}>Atualizar <span>↻</span></button></div>{reportsLoading ? <p className="report-empty">Carregando resultados…</p> : reportsError ? <p className="teacher-message teacher-error">{reportsError}</p> : reports.length === 0 ? <p className="report-empty">Ainda não há tentativas registradas.</p> : <div className="report-table-wrap"><table className="report-table"><thead><tr><th>Aluno</th><th>Turma</th><th>Acertos</th><th>Aproveitamento</th><th>Data</th></tr></thead><tbody>{reports.map((report) => <tr key={report.id}><td><strong>{report.student_name}</strong></td><td>{report.class_name.replace("8º ANO ", "")}</td><td>{report.correct_answers} / {report.total_questions}</td><td><span className="report-percent">{report.percentage}%</span><div className="mini-progress"><span style={{ width: `${report.percentage}%` }} /></div></td><td>{new Date(report.created_at).toLocaleDateString("pt-BR")}</td></tr>)}</tbody></table></div>}</div>
-              <button className="text-button" onClick={() => setPhase("home")}>Voltar para o quiz <span>→</span></button>
             </>
           )}
         </section>
