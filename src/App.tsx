@@ -14,6 +14,11 @@ const categories: { name: Category; eyebrow: string; description: string; count:
 ];
 const LETTERS = ["A", "B", "C", "D"];
 const ROUND_SECONDS = 45;
+const topicByCategory: Record<Question["category"], string> = {
+  "Organização digital": "organization",
+  "Programação e algoritmos": "programming",
+  "Redes sociais e cultura digital": "social",
+};
 
 function shuffle<T>(items: T[]): T[] {
   const result = [...items];
@@ -170,7 +175,7 @@ function App() {
   }, [records]);
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" data-topic={phase === "playing" && current ? topicByCategory[current.category] : undefined}>
       <audio ref={musicRef} src="/quiz-loop.mp3" loop preload="none" aria-hidden="true" />
       <div className="noise" aria-hidden="true" />
       <header className="topbar">

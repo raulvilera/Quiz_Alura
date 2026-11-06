@@ -17,3 +17,12 @@
 
 .music-toggle{display:inline-flex;align-items:center;gap:7px;border:1px solid #46523e;background:rgba(214,250,101,.08);color:#d9f29e;border-radius:7px;padding:7px 9px;font-size:10px;white-space:nowrap;cursor:pointer}.music-toggle span:first-child{font-size:15px;line-height:1}.music-toggle:hover{background:rgba(214,250,101,.15)}.music-toggle:focus-visible{outline:3px solid var(--lime);outline-offset:3px}
 @media(max-width:760px){.game-topbar-right .grade-pill{display:none}.music-toggle{width:32px;height:32px;justify-content:center;padding:0}.music-toggle span:last-child{display:none}.music-toggle span:first-child{font-size:17px}}
+
+
+/* Fundos temáticos discretos: a cor acompanha a categoria sem competir com o enunciado. */
+.app-shell[data-topic]::before{content:"";position:absolute;inset:78px 0 0;z-index:0;pointer-events:none;opacity:.9}
+.app-shell[data-topic="organization"]::before{background:radial-gradient(ellipse at 82% 18%,rgba(246,177,93,.19),transparent 36%),radial-gradient(ellipse at 12% 70%,rgba(167,204,110,.12),transparent 32%),repeating-linear-gradient(135deg,rgba(238,193,125,.026) 0 1px,transparent 1px 26px);mask-image:radial-gradient(ellipse at 76% 25%,#000 0%,transparent 76%)}
+.app-shell[data-topic="programming"]::before{background:radial-gradient(ellipse at 82% 17%,rgba(88,145,255,.2),transparent 38%),radial-gradient(ellipse at 14% 74%,rgba(56,207,221,.11),transparent 31%),linear-gradient(rgba(130,178,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(130,178,255,.045) 1px,transparent 1px);background-size:auto,auto,38px 38px,38px 38px;mask-image:radial-gradient(ellipse at 76% 26%,#000 0%,transparent 76%)}
+.app-shell[data-topic="social"]::before{background:radial-gradient(ellipse at 83% 16%,rgba(184,111,255,.19),transparent 37%),radial-gradient(ellipse at 16% 74%,rgba(255,120,159,.12),transparent 32%),radial-gradient(rgba(221,174,255,.12) 1px,transparent 1.5px);background-size:auto,auto,25px 25px;mask-image:radial-gradient(ellipse at 76% 25%,#000 0%,transparent 76%)}
+@media(max-width:760px){.app-shell[data-topic]::before{top:67px}}
+@media(prefers-reduced-motion:reduce){.app-shell[data-topic]::before{transition:none}}
