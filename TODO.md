@@ -13,6 +13,7 @@
 - [x] **Entrada protegida e link dos alunos:** A plataforma abre no login do professor; após a autenticação, o painel disponibiliza o endereço da área dos alunos com ações para copiar ou abrir o link. O endereço com `?modo=aluno` permite que os estudantes acessem o quiz sem conta de professor.
 - [x] **Verificação do e-mail do professor:** O cadastro informa que a confirmação é obrigatória, o painel não é liberado para contas sem `email_confirmed_at` e o login de e-mails não confirmados é bloqueado com orientação para verificar a caixa de entrada.
 - [x] **Exibição de notas:** O resultado do aluno mostra a nota final de 0 a 10, junto dos acertos, percentual e pontos; o relatório do professor também ganhou uma coluna específica para a nota.
+- [x] **Relatório por trilha:** Cada tentativa do relatório agora detalha os acertos por trilha no formato acertos/total, preservando a nota final, o percentual e a data.
 
 - [x] **Imagens animadas por categoria:** Cada pergunta deve exibir um fundo ilustrado correspondente ao tema — organização digital, programação/algoritmos ou redes sociais/cultura digital — com movimento suave de deslocamento/zoom, sobreposição escura para manter a leitura e respeito a prefers-reduced-motion.
 - [x] **Acesso simplificado às trilhas:** As trilhas aparecem antes da identificação, têm ação clicável desde o primeiro contato e, quando necessário, levam o foco diretamente ao campo de turma ou nome que falta. Após a identificação, o aluno recebe uma confirmação clara para iniciar qualquer trilha.

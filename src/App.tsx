@@ -18,6 +18,7 @@ type ReportRow = {
   total_questions: number;
   correct_answers: number;
   percentage: number;
+  answers: { category?: string; correct?: boolean }[];
   created_at: string;
 };
 
@@ -126,7 +127,7 @@ function App() {
     setReportsError("");
     const { data, error } = await supabase
       .from("quiz_attempts")
-      .select("id, student_name, class_name, score, total_questions, correct_answers, percentage, created_at")
+      .select("id, student_name, class_name, score, total_questions, correct_answers, percentage, answers, created_at")
       .order("created_at", { ascending: false });
     if (error) setReportsError("Não foi possível carregar os relatórios. Verifique se a migração do Supabase foi executada.");
     else setReports((data ?? []) as ReportRow[]);
@@ -382,6 +383,16 @@ function App() {
     return { ...item, attempts: classReports.length, average, students: new Set(classReports.map((report) => report.student_name)).size };
   }), [reports]);
 
+  const trackSummary = useCallback((answers: ReportRow["answers"]) => {
+    const summary = new Map<string, { correct: number; total: number }>();
+    (answers ?? []).forEach((answer) => {
+      const categoryName = answer.category || "Trilha não identificada";
+      const currentSummary = summary.get(categoryName) ?? { correct: 0, total: 0 };
+      summary.set(categoryName, { correct: currentSummary.correct + (answer.correct ? 1 : 0), total: currentSummary.total + 1 });
+    });
+    return [...summary.entries()];
+  }, []);
+
   const focusStudentStep = useCallback(() => {
     studentPickerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     window.setTimeout(() => {
@@ -435,7 +446,7 @@ function App() {
               <div className="teacher-heading"><div><p className="kicker"><span className="kicker-line" /> PAINEL DO PROFESSOR</p><h1>Desempenho da <span className="highlight">turma.</span></h1><p>Resultados registrados pelos alunos no quiz completo.</p></div><div className="teacher-actions"><span>{teacherUser.email}</span><button className="text-button" onClick={teacherSignOut}>Sair <span>↗</span></button></div></div>
               <div className="student-link-card"><div><p className="section-eyebrow">ACESSO DOS ALUNOS</p><h2>Compartilhe o link do quiz</h2><p>Envie este endereço para os alunos. Eles entrarão diretamente na identificação da turma e do nome.</p></div><div className="student-link-actions"><input ref={studentLinkInputRef} aria-label="Link de acesso dos alunos" value={studentLink} readOnly onFocus={(event) => event.currentTarget.select()} /><button type="button" className={`primary-button copy-link-button${studentLinkCopied ? " copy-link-button-copied" : ""}`} onClick={() => void copyStudentLink} aria-live="polite">{studentLinkCopied ? "Link copiado" : studentLinkCopyError ? "Link selecionado" : "Copiar link"}<span>{studentLinkCopied ? "✓" : "↗"}</span></button><a className="text-button" href={studentLink} target="_blank" rel="noreferrer">Abrir área dos alunos <span>↗</span></a>{studentLinkCopied && <span className="copy-link-notification" role="status">✓ Link copiado para a área de transferência.</span>}{studentLinkCopyError && <span className="student-link-error" role="alert">O navegador bloqueou a cópia automática. O link foi selecionado; pressione Ctrl+C para copiar.</span>}</div></div>
               <div className="teacher-summary">{classSummary.map((item) => <article className="teacher-summary-card" key={item.value}><span>{item.label}</span><strong>{item.average}%</strong><small>{item.attempts} tentativas · {item.students} alunos</small></article>)}</div>
-              <div className="report-card"><div className="report-card-heading"><div><p className="section-eyebrow">VISÃO INDIVIDUAL</p><h2>Últimas tentativas</h2></div><button className="text-button" onClick={() => void loadReports()}>Atualizar <span>↻</span></button></div>{reportsLoading ? <p className="report-empty">Carregando resultados…</p> : reportsError ? <p className="teacher-message teacher-error">{reportsError}</p> : reports.length === 0 ? <p className="report-empty">Ainda não há tentativas registradas.</p> : <div className="report-table-wrap"><table className="report-table"><thead><tr><th>Aluno</th><th>Turma</th><th>Acertos</th><th>Nota</th><th>Aproveitamento</th><th>Data</th></tr></thead><tbody>{reports.map((report) => <tr key={report.id}><td><strong>{report.student_name}</strong></td><td>{report.class_name.replace("8º ANO ", "")}</td><td>{report.correct_answers} / {report.total_questions}</td><td><span className="report-grade">{(report.percentage / 10).toFixed(1).replace(".", ",")}</span></td><td><span className="report-percent">{report.percentage}%</span><div className="mini-progress"><span style={{ width: `${report.percentage}%` }} /></div></td><td>{new Date(report.created_at).toLocaleDateString("pt-BR")}</td></tr>)}</tbody></table></div>}</div>
+              <div className="report-card"><div className="report-card-heading"><div><p className="section-eyebrow">VISÃO INDIVIDUAL</p><h2>Últimas tentativas</h2></div><button className="text-button" onClick={() => void loadReports()}>Atualizar <span>↻</span></button></div>{reportsLoading ? <p className="report-empty">Carregando resultados…</p> : reportsError ? <p className="teacher-message teacher-error">{reportsError}</p> : reports.length === 0 ? <p className="report-empty">Ainda não há tentativas registradas.</p> : <div className="report-table-wrap"><table className="report-table"><thead><tr><th>Aluno</th><th>Turma</th><th>Trilhas e acertos</th><th>Nota</th><th>Aproveitamento</th><th>Data</th></tr></thead><tbody>{reports.map((report) => <tr key={report.id}><td><strong>{report.student_name}</strong></td><td>{report.class_name.replace("8º ANO ", "")}</td><td><div className="track-report-list">{trackSummary(report.answers).map(([categoryName, summary]) => <span key={categoryName}><b>{categoryName}</b><em>{summary.correct}/{summary.total}</em></span>)}</div></td><td><span className="report-grade">{(report.percentage / 10).toFixed(1).replace(".", ",")}</span></td><td><span className="report-percent">{report.percentage}%</span><div className="mini-progress"><span style={{ width: `${report.percentage}%` }} /></div></td><td>{new Date(report.created_at).toLocaleDateString("pt-BR")}</td></tr>)}</tbody></table></div>}</div>
             </>
           )}
         </section>
