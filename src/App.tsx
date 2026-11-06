@@ -228,9 +228,15 @@ function App() {
       setInstallHelpOpen(true);
       return;
     }
-    await installPrompt.prompt();
-    const choice = await installPrompt.userChoice;
-    if (choice.outcome === "accepted") setInstallPrompt(null);
+    try {
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      setInstallPrompt(null);
+      if (choice.outcome === "dismissed") setInstallHelpOpen(true);
+    } catch {
+      setInstallPrompt(null);
+      setInstallHelpOpen(true);
+    }
   }, [installPrompt]);
 
   useEffect(() => {
