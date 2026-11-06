@@ -1,6 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { questions, type Question } from "./data/questions";
+import { TURMAS, novoId, registrarResultado, type Turma } from "./lib/supabase";
 import "./styles.css";
+
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+const PROFILE_KEY = "desafio_aluno_v1";
+function readProfile(): { turma: Turma | null; nome: string } {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) || "null");
+    const turma = TURMAS.find((item) => item === saved?.turma) ?? null;
+    return { turma, nome: typeof saved?.nome === "string" ? saved.nome.slice(0, 120) : "" };
+  } catch {
+    return { turma: null, nome: "" };
+  }
+}
 
 type Phase = "home" | "playing" | "result";
 type Category = "Tudo" | Question["category"];
@@ -45,6 +58,19 @@ function App() {
   const [score, setScore] = useState(0);
   const [records, setRecords] = useState<AnswerRecord[]>([]);
   const [streak, setStreak] = useState(0);
+  const [turma, setTurma] = useState<Turma | null>(() => readProfile().turma);
+  const [studentName, setStudentName] = useState(() => readProfile().nome);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const roundIdRef = useRef("");
+  const profileReady = turma !== null && studentName.trim().length >= 3;
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PROFILE_KEY, JSON.stringify({ turma, nome: studentName }));
+    } catch {
+      /* sem armazenamento: segue sem lembrar a escolha */
+    }
+  }, [turma, studentName]);
 
   const current = round[index];
   const total = round.length;
@@ -63,6 +89,9 @@ function App() {
   }, [phase]);
 
   const startQuiz = useCallback((chosen: Category) => {
+    if (!profileReady) return;
+    roundIdRef.current = novoId();
+    setSaveStatus("idle");
     const chosenQuestions = chosen === "Tudo" ? questions : questions.filter((question) => question.category === chosen);
     setCategory(chosen);
     setRound(shuffle(chosenQuestions));
@@ -80,7 +109,32 @@ function App() {
       void musicRef.current.play().catch(() => {});
     }
     setPhase("playing");
-  }, [musicEnabled]);
+  }, [musicEnabled, profileReady]);
+
+  const saveResult = useCallback(async () => {
+    if (!turma || !roundIdRef.current || !total) return;
+    setSaveStatus("saving");
+    try {
+      await registrarResultado({
+        id: roundIdRef.current,
+        turma,
+        nome: studentName,
+        trilha: category === "Tudo" ? "Desafio completo" : category,
+        pontos: score,
+        acertos: correctCount,
+        total,
+      });
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("error");
+    }
+  }, [turma, studentName, category, score, correctCount, total]);
+
+  useEffect(() => {
+    if (phase === "result") void saveResult();
+    // salva uma vez ao chegar no resultado; o botão "tentar de novo" chama saveResult
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   const toggleMusic = useCallback(() => {
     const audio = musicRef.current;
@@ -184,7 +238,7 @@ function App() {
           <span className="brand-text">DESAFIO<span>DIGITAL</span></span>
         </button>
         <div className={`topbar-right ${phase === "playing" ? "game-topbar-right" : ""}`}>
-          <span className="grade-pill"><span className="live-dot" /> TECNOLOGIA · 8º ANO</span>
+          <span className="grade-pill"><span className="live-dot" /> TECNOLOGIA · {turma ? turma.toUpperCase() : "8º ANO"}</span>
           {phase === "playing" && <button className="music-toggle" onClick={toggleMusic} aria-pressed={musicEnabled} aria-label={musicEnabled ? "Silenciar trilha sonora" : "Ativar trilha sonora"}><span aria-hidden="true">{musicEnabled ? "♫" : "♪"}</span><span>{musicEnabled ? "Som ligado" : "Som desligado"}</span></button>}
           {phase === "playing" && <span className="top-score"><span className="star">✳</span> {score.toLocaleString("pt-BR")}</span>}
         </div>
@@ -209,13 +263,31 @@ function App() {
             </div>
           </div>
 
+          <div className="student-panel">
+            <div className="student-field">
+              <p className="section-eyebrow">1 · SUA TURMA</p>
+              <div className="turma-options" role="radiogroup" aria-label="Escolha sua turma">
+                {TURMAS.map((item) => (
+                  <button key={item} type="button" role="radio" aria-checked={turma === item} className={`turma-option${turma === item ? " selected" : ""}`} onClick={() => setTurma(item)}>
+                    <strong>{item.replace("Ano ", "ANO ")}</strong><span>{turma === item ? "✓ selecionada" : "toque para escolher"}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="student-field">
+              <label className="section-eyebrow" htmlFor="student-name">2 · SEU NOME</label>
+              <input id="student-name" className="student-input" value={studentName} onChange={(event) => setStudentName(event.target.value)} maxLength={120} autoComplete="name" placeholder="Nome e sobrenome" />
+            </div>
+            <p className="student-hint" role="status">{profileReady ? "Tudo pronto! Escolha uma trilha abaixo." : "Escolha a turma e escreva seu nome para liberar as trilhas."}</p>
+          </div>
+
           <div className="selection-heading">
             <div><p className="section-eyebrow">ESCOLHA SUA JORNADA</p><h2>Por onde vamos começar?</h2></div>
             <p className="selection-note">Sem pressão. Você pode tentar<br />quantas vezes quiser.</p>
           </div>
           <div className="category-list">
             {categories.map((item, itemIndex) => (
-              <button key={item.name} className={`category-card cat-${itemIndex}${itemIndex === 0 ? " featured" : ""}`} onClick={() => startQuiz(item.name)}>
+              <button key={item.name} className={`category-card cat-${itemIndex}${itemIndex === 0 ? " featured" : ""}`} onClick={() => startQuiz(item.name)} disabled={!profileReady}>
                 <span className="category-icon">{item.mark}</span>
                 <span className="category-main"><span className="category-eyebrow">{item.eyebrow}</span><strong>{item.name === "Tudo" ? "Desafio completo" : item.name}</strong><span className="category-description">{item.description}</span></span>
                 <span className="category-meta"><strong>{item.count.toString().padStart(2, "0")}</strong><span>questões</span></span>
@@ -302,6 +374,11 @@ function App() {
               <div className="stat-row"><span>Respostas certas</span><strong>{correctCount}<small> / {total}</small></strong></div>
               <div className="stat-row"><span>Aproveitamento</span><strong>{percent}<small>%</small></strong></div>
               <div className="mini-progress"><span style={{ width: `${percent}%` }} /></div>
+              <div className={`save-status save-${saveStatus}`} role="status" aria-live="polite">
+                {saveStatus === "saving" && `Salvando resultado de ${turma}…`}
+                {saveStatus === "saved" && `✓ Resultado salvo · ${turma}`}
+                {saveStatus === "error" && <>Não consegui salvar agora. <button type="button" onClick={() => void saveResult()}>Tentar de novo</button></>}
+              </div>
               <div className="result-rule" /><span className="review-label">PARA REVISAR</span>
               {groupedMisses.length ? groupedMisses.map(([name, missed]) => <div className="review-row" key={name}><span>{name}</span><strong>{missed}</strong></div>) : <p className="perfect-note">Tudo certo por aqui. Que tal outra trilha?</p>}
             </div>

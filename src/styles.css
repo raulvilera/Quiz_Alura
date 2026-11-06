@@ -26,3 +26,18 @@
 .app-shell[data-topic="social"]::before{background:radial-gradient(ellipse at 83% 16%,rgba(184,111,255,.19),transparent 37%),radial-gradient(ellipse at 16% 74%,rgba(255,120,159,.12),transparent 32%),radial-gradient(rgba(221,174,255,.12) 1px,transparent 1.5px);background-size:auto,auto,25px 25px;mask-image:radial-gradient(ellipse at 76% 25%,#000 0%,transparent 76%)}
 @media(max-width:760px){.app-shell[data-topic]::before{top:67px}}
 @media(prefers-reduced-motion:reduce){.app-shell[data-topic]::before{transition:none}}
+
+/* turma e nome do aluno */
+.student-panel{display:grid;grid-template-columns:1.1fr 1fr;gap:20px 28px;align-items:end;padding:18px 20px;margin:6px 0 10px;background:rgba(27,35,44,.84);border:1px solid #2b353f;border-radius:12px}
+.student-field{min-width:0}.student-field .section-eyebrow{display:block;margin-bottom:9px}
+.turma-options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.turma-option{display:flex;flex-direction:column;gap:3px;text-align:left;padding:11px 14px;min-height:54px;background:#10151c;border:1px solid #2b353f;border-radius:10px;cursor:pointer;transition:border-color .18s ease,background .18s ease}
+.turma-option strong{font-size:15px;font-weight:600;letter-spacing:.2px}.turma-option span{font:500 9px var(--mono);letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+.turma-option:hover{border-color:#44515f}.turma-option.selected{border-color:var(--lime);background:rgba(214,250,101,.1)}.turma-option.selected span{color:var(--lime)}
+.student-input{width:100%;min-height:54px;padding:0 14px;font-size:15px;color:#f5f6f1;background:#10151c;border:1px solid #2b353f;border-radius:10px}
+.student-input:focus,.turma-option:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.student-hint{grid-column:1/-1;margin:0;font-size:12px;color:var(--muted)}
+.category-card:disabled{opacity:.45;cursor:not-allowed}.category-card:disabled:hover{transform:none}
+.save-status{margin-top:14px;font-size:12px;color:var(--muted);min-height:18px}.save-status.save-saved{color:var(--mint)}.save-status.save-error{color:#ff9b8e}
+.save-status button{border:0;background:transparent;color:var(--lime);text-decoration:underline;cursor:pointer;padding:0}
+@media (max-width:760px){.student-panel{grid-template-columns:1fr;padding:16px}}
