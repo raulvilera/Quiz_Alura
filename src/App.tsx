@@ -1,10 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { questions, type Question } from "./data/questions";
+import { supabase } from "./supabase";
 import "./styles.css";
 
 type Phase = "home" | "playing" | "result";
 type Category = "Tudo" | Question["category"];
 type AnswerRecord = { question: Question; correct: boolean; timedOut?: boolean };
+type RosterStatus = "idle" | "loading" | "ready" | "error";
+
+const classOptions = [
+  { label: "8º Ano A · Tarde", value: "8º ANO A TARDE" },
+  { label: "8º Ano B · Tarde", value: "8º ANO B TARDE" },
+];
+
+function getRosterName(entry: unknown): string {
+  if (typeof entry === "string") return entry.trim();
+  if (!entry || typeof entry !== "object") return "";
+  const name = (entry as Record<string, unknown>).nome;
+  return typeof name === "string" ? name.trim() : "";
+}
 
 const categories: { name: Category; eyebrow: string; description: string; count: number; mark: string }[] = [
   { name: "Tudo", eyebrow: "DESAFIO COMPLETO", description: "Uma jornada por todos os assuntos do caderno.", count: questions.length, mark: "✳" },
@@ -34,6 +48,11 @@ function App() {
   const musicRef = useRef<HTMLAudioElement>(null);
   const [phase, setPhase] = useState<Phase>("home");
   const [musicEnabled, setMusicEnabled] = useState(true);
+  const [selectedClass, setSelectedClass] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState("");
+  const [rosterNames, setRosterNames] = useState<string[]>([]);
+  const [rosterStatus, setRosterStatus] = useState<RosterStatus>("idle");
+  const [rosterReload, setRosterReload] = useState(0);
   const [category, setCategory] = useState<Category>("Tudo");
   const [round, setRound] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
@@ -55,6 +74,39 @@ function App() {
   const currentRecord = current ? records.find((record) => record.question.id === current.id) : undefined;
 
   useEffect(() => {
+    let cancelled = false;
+    setRosterNames([]);
+    setSelectedStudent("");
+    if (!selectedClass) {
+      setRosterStatus("idle");
+      return () => { cancelled = true; };
+    }
+
+    setRosterStatus("loading");
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("turmas_alunos")
+          .select("alunos")
+          .eq("turma", selectedClass)
+          .maybeSingle();
+        if (cancelled) return;
+        if (error) throw error;
+        const entries = (data as { alunos?: unknown } | null)?.alunos;
+        const names = Array.isArray(entries)
+          ? [...new Set(entries.map(getRosterName).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"))
+          : [];
+        setRosterNames(names);
+        setRosterStatus("ready");
+      } catch {
+        if (!cancelled) setRosterStatus("error");
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [selectedClass, rosterReload]);
+
+  useEffect(() => {
     if (phase === "playing") questionTitleRef.current?.focus();
   }, [phase, index]);
 
@@ -63,6 +115,7 @@ function App() {
   }, [phase]);
 
   const startQuiz = useCallback((chosen: Category) => {
+    if (!selectedClass || !selectedStudent) return;
     const chosenQuestions = chosen === "Tudo" ? questions : questions.filter((question) => question.category === chosen);
     setCategory(chosen);
     setRound(shuffle(chosenQuestions));
@@ -80,7 +133,7 @@ function App() {
       void musicRef.current.play().catch(() => {});
     }
     setPhase("playing");
-  }, [musicEnabled]);
+  }, [musicEnabled, selectedClass, selectedStudent]);
 
   const toggleMusic = useCallback(() => {
     const audio = musicRef.current;
@@ -213,9 +266,17 @@ function App() {
             <div><p className="section-eyebrow">ESCOLHA SUA JORNADA</p><h2>Por onde vamos começar?</h2></div>
             <p className="selection-note">Sem pressão. Você pode tentar<br />quantas vezes quiser.</p>
           </div>
+          <section className="student-picker" aria-labelledby="student-picker-title">
+            <div className="student-picker-heading"><p className="section-eyebrow">IDENTIFICAÇÃO DO ALUNO</p><h2 id="student-picker-title">Primeiro, escolha sua turma e seu nome.</h2><p>Selecione a turma para carregar a lista de estudantes matriculados.</p></div>
+            <div className="student-picker-fields">
+              <div className="student-field"><label htmlFor="student-class">1. Sua turma</label><select id="student-class" value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)} required><option value="">Selecione a turma</option>{classOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
+              <div className="student-field"><label htmlFor="student-name">2. Seu nome</label><select id="student-name" value={selectedStudent} onChange={(event) => setSelectedStudent(event.target.value)} disabled={!selectedClass || rosterStatus !== "ready" || rosterNames.length === 0} required><option value="">{!selectedClass ? "Escolha primeiro a turma" : rosterStatus === "loading" ? "Carregando alunos…" : rosterStatus === "error" ? "Não foi possível carregar" : rosterNames.length ? "Selecione seu nome" : "Nenhum aluno encontrado"}</option>{rosterNames.map((name, nameIndex) => <option key={`${name}-${nameIndex}`} value={name}>{name}</option>)}</select></div>
+            </div>
+            <div className="roster-status" role="status" aria-live="polite">{rosterStatus === "loading" && <span>Buscando a lista da turma selecionada…</span>}{rosterStatus === "error" && <><span>Não foi possível carregar os nomes. Verifique a conexão e tente novamente.</span><button type="button" onClick={() => setRosterReload((value) => value + 1)}>Tentar novamente</button></>}{rosterStatus === "ready" && <span>{rosterNames.length} estudantes encontrados. Escolha seu nome para liberar as trilhas.</span>}</div>
+          </section>
           <div className="category-list">
             {categories.map((item, itemIndex) => (
-              <button key={item.name} className={`category-card cat-${itemIndex}${itemIndex === 0 ? " featured" : ""}`} onClick={() => startQuiz(item.name)}>
+              <button key={item.name} className={`category-card cat-${itemIndex}${itemIndex === 0 ? " featured" : ""}`} onClick={() => startQuiz(item.name)} disabled={!selectedClass || !selectedStudent || rosterStatus !== "ready"} aria-disabled={!selectedClass || !selectedStudent || rosterStatus !== "ready"}>
                 <span className="category-icon">{item.mark}</span>
                 <span className="category-main"><span className="category-eyebrow">{item.eyebrow}</span><strong>{item.name === "Tudo" ? "Desafio completo" : item.name}</strong><span className="category-description">{item.description}</span></span>
                 <span className="category-meta"><strong>{item.count.toString().padStart(2, "0")}</strong><span>questões</span></span>
