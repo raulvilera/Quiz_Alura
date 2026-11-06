@@ -20,12 +20,6 @@ function getRosterName(entry: unknown): string {
   return typeof name === "string" ? name.trim() : "";
 }
 
-const categories: { name: Category; eyebrow: string; description: string; count: number; mark: string }[] = [
-  { name: "Tudo", eyebrow: "DESAFIO COMPLETO", description: "Uma jornada por todos os assuntos do caderno.", count: questions.length, mark: "✳" },
-  { name: "Organização digital", eyebrow: "ARQUIVOS & CRIAÇÃO", description: "Pastas, tabelas, planejamento e autoria.", count: 4, mark: "▦" },
-  { name: "Programação e algoritmos", eyebrow: "LÓGICA & CÓDIGO", description: "Comandos, variáveis, laços e listas.", count: 16, mark: "{ }" },
-  { name: "Redes sociais e cultura digital", eyebrow: "VIDA CONECTADA", description: "Informação, privacidade e algoritmos.", count: 15, mark: "◎" },
-];
 const LETTERS = ["A", "B", "C", "D"];
 const ROUND_SECONDS = 45;
 const topicByCategory: Record<Question["category"], string> = {
@@ -65,6 +59,7 @@ function App() {
   const [records, setRecords] = useState<AnswerRecord[]>([]);
   const [streak, setStreak] = useState(0);
 
+  const canStart = Boolean(selectedClass && selectedStudent && rosterStatus === "ready");
   const current = round[index];
   const total = round.length;
   const progress = total ? ((index + (revealed ? 1 : 0)) / total) * 100 : 0;
@@ -244,54 +239,46 @@ function App() {
       </header>
 
       {phase === "home" && (
-        <section className="home-page">
-          <div className="hero-grid">
-            <div className="hero-copy">
-              <p className="kicker"><span className="kicker-line" /> APRENDER É JOGAR</p>
-              <h1>Seu próximo<br />nível começa <span className="highlight">aqui.</span></h1>
-              <p className="hero-sub">Tecnologia, lógica e cultura digital — um desafio de cada vez. Escolha sua trilha e mostre o que sabe.</p>
-              <div className="hero-stats">
-                <div><strong>35</strong><span>questões</span></div><b className="stat-divider" /><div><strong>03</strong><span>trilhas</span></div><b className="stat-divider" /><div><strong>∞</strong><span>tentativas</span></div>
+        <section className="home-page simple-home">
+          <div className="simple-card">
+            <p className="kicker"><span className="kicker-line" /> DESAFIO DIGITAL</p>
+            <h1>Vamos <span className="highlight">começar?</span></h1>
+            <p className="simple-sub">Escolha sua turma e seu nome. Depois é só entrar.</p>
+
+            <div className="simple-fields">
+              <div className="student-field">
+                <label htmlFor="student-class">1. Sua turma</label>
+                <select id="student-class" value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)}>
+                  <option value="">Selecione a turma</option>
+                  {classOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                </select>
+              </div>
+              <div className="student-field">
+                <label htmlFor="student-name">2. Seu nome</label>
+                <select id="student-name" value={selectedStudent} onChange={(event) => setSelectedStudent(event.target.value)} disabled={!selectedClass || rosterStatus !== "ready" || rosterNames.length === 0}>
+                  <option value="">{!selectedClass ? "Escolha primeiro a turma" : rosterStatus === "loading" ? "Carregando alunos…" : rosterStatus === "error" ? "Não foi possível carregar" : rosterNames.length ? "Selecione seu nome" : "Nenhum aluno encontrado"}</option>
+                  {rosterNames.map((name, nameIndex) => <option key={`${name}-${nameIndex}`} value={name}>{name}</option>)}
+                </select>
               </div>
             </div>
-            <div className="hero-art" aria-hidden="true">
-              <div className="orbit orbit-one" /><div className="orbit orbit-two" />
-              <div className="orb-core"><div className="orb-inner"><span>?</span><i>★</i></div></div>
-              <span className="float-chip chip-code">{"{ }"}</span><span className="float-chip chip-bolt">✦</span><span className="float-chip chip-asterisk">✳</span>
-              <span className="float-chip chip-label">QUIZ ON</span>
-            </div>
-          </div>
 
-          <div className="selection-heading">
-            <div><p className="section-eyebrow">ESCOLHA SUA JORNADA</p><h2>Por onde vamos começar?</h2></div>
-            <p className="selection-note">Sem pressão. Você pode tentar<br />quantas vezes quiser.</p>
-          </div>
-          <section className="student-picker" aria-labelledby="student-picker-title">
-            <div className="student-picker-heading"><p className="section-eyebrow">IDENTIFICAÇÃO DO ALUNO</p><h2 id="student-picker-title">Primeiro, escolha sua turma e seu nome.</h2><p>Selecione a turma para carregar a lista de estudantes matriculados.</p></div>
-            <div className="student-picker-fields">
-              <div className="student-field"><label htmlFor="student-class">1. Sua turma</label><select id="student-class" value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)} required><option value="">Selecione a turma</option>{classOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
-              <div className="student-field"><label htmlFor="student-name">2. Seu nome</label><select id="student-name" value={selectedStudent} onChange={(event) => setSelectedStudent(event.target.value)} disabled={!selectedClass || rosterStatus !== "ready" || rosterNames.length === 0} required><option value="">{!selectedClass ? "Escolha primeiro a turma" : rosterStatus === "loading" ? "Carregando alunos…" : rosterStatus === "error" ? "Não foi possível carregar" : rosterNames.length ? "Selecione seu nome" : "Nenhum aluno encontrado"}</option>{rosterNames.map((name, nameIndex) => <option key={`${name}-${nameIndex}`} value={name}>{name}</option>)}</select></div>
+            <div className="roster-status" role="status" aria-live="polite">
+              {rosterStatus === "loading" && <span>Buscando a lista da turma…</span>}
+              {rosterStatus === "error" && <><span>Não foi possível carregar os nomes. Verifique a conexão.</span><button type="button" onClick={() => setRosterReload((value) => value + 1)}>Tentar novamente</button></>}
             </div>
-            <div className="roster-status" role="status" aria-live="polite">{rosterStatus === "loading" && <span>Buscando a lista da turma selecionada…</span>}{rosterStatus === "error" && <><span>Não foi possível carregar os nomes. Verifique a conexão e tente novamente.</span><button type="button" onClick={() => setRosterReload((value) => value + 1)}>Tentar novamente</button></>}{rosterStatus === "ready" && <span>{rosterNames.length} estudantes encontrados. Escolha seu nome para liberar as trilhas.</span>}</div>
-          </section>
-          <div className="category-list">
-            {categories.map((item, itemIndex) => (
-              <button key={item.name} className={`category-card cat-${itemIndex}${itemIndex === 0 ? " featured" : ""}`} onClick={() => startQuiz(item.name)} disabled={!selectedClass || !selectedStudent || rosterStatus !== "ready"} aria-disabled={!selectedClass || !selectedStudent || rosterStatus !== "ready"}>
-                <span className="category-icon">{item.mark}</span>
-                <span className="category-main"><span className="category-eyebrow">{item.eyebrow}</span><strong>{item.name === "Tudo" ? "Desafio completo" : item.name}</strong><span className="category-description">{item.description}</span></span>
-                <span className="category-meta"><strong>{item.count.toString().padStart(2, "0")}</strong><span>questões</span></span>
-                <span className="category-arrow" aria-hidden="true">↗</span>
-              </button>
-            ))}
+
+            <button className="start-button" onClick={() => startQuiz("Tudo")} disabled={!canStart} aria-disabled={!canStart}>
+              <span>{canStart ? `Entrar e responder as ${questions.length} questões` : "Escolha a turma e o nome para entrar"}</span>
+              <span aria-hidden="true">→</span>
+            </button>
           </div>
-          <footer className="home-footer"><span>FEITO PARA CURIOSOS DE TODAS AS IDEIAS</span><span>QUESTÕES DO CADERNO · 8º ANO</span></footer>
         </section>
       )}
 
       {phase === "playing" && current && (
         <section className="game-page">
           <div className="game-toolbar">
-            <button className="back-button" onClick={() => setPhase("home")} aria-label="Voltar à seleção de categorias">← <span>Sair do desafio</span></button>
+            <button className="back-button" onClick={() => setPhase("home")} aria-label="Voltar ao início">← <span>Sair do desafio</span></button>
             <div className="game-context"><span>{current.category}</span><i>·</i><span>QUESTÃO {String(index + 1).padStart(2, "0")} <em>/ {String(total).padStart(2, "0")}</em></span></div>
             <div className={`timer ${remaining <= 10 ? "timer-urgent" : ""}`} role="timer" aria-live="off" aria-label={`${remaining} segundos restantes`}><span className="timer-icon">◷</span><strong>00:{String(remaining).padStart(2, "0")}</strong></div>
             <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{currentRecord?.timedOut ? "O tempo desta questão acabou." : !revealed && [30, 20, 10, 5].includes(remaining) ? `Restam ${remaining} segundos para responder.` : ""}</span>
@@ -356,7 +343,7 @@ function App() {
               <p className="result-label">{percent >= 80 ? "VOCÊ MANDOU MUITO" : percent >= 50 ? "BOM CAMINHO" : "CADA TENTATIVA ENSINA"}</p>
               <h1>{percent >= 80 ? <>Que <span className="highlight">jogada!</span></> : percent >= 50 ? <>Tá no <span className="highlight">caminho.</span></> : <>Vamos de <span className="highlight">novo?</span></>}</h1>
               <p className="result-copy">{percent >= 80 ? "Seu conhecimento digital está afiado. Compartilhe essa conquista consigo mesmo e siga curioso." : "Revisar também faz parte do jogo. Veja onde pode fortalecer o que aprendeu e tente novamente."}</p>
-              <div className="result-actions"><button className="primary-button" onClick={() => startQuiz(category)}>Jogar esta trilha de novo <span>↻</span></button><button className="text-button" onClick={() => setPhase("home")}>Escolher outra trilha <span>→</span></button></div>
+              <div className="result-actions"><button className="primary-button" onClick={() => startQuiz(category)}>Jogar de novo <span>↻</span></button><button className="text-button" onClick={() => setPhase("home")}>Voltar ao início <span>→</span></button></div>
             </div>
             <div className="result-card">
               <span className="result-card-label">SEU PLACAR</span><div className="big-score">{score.toLocaleString("pt-BR")}<span>pts</span></div><div className="result-rule" />
