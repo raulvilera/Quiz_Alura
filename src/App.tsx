@@ -10,6 +10,7 @@ type Category = "Tudo" | Question["category"];
 type AnswerRecord = { question: Question; correct: boolean; timedOut?: boolean };
 type RosterStatus = "idle" | "loading" | "ready" | "error";
 type TeacherMode = "login" | "signup";
+type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 type ReportRow = {
   id: string;
   student_name: string;
@@ -92,6 +93,7 @@ function App() {
   const [expandedReportStudent, setExpandedReportStudent] = useState<string | null>(null);
   const [studentLinkCopied, setStudentLinkCopied] = useState(false);
   const [studentLinkCopyError, setStudentLinkCopyError] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const studentLinkInputRef = useRef<HTMLInputElement>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const savedAttemptRef = useRef<string | null>(null);
@@ -120,6 +122,20 @@ function App() {
       setTeacherUser(session?.user?.email_confirmed_at ? session.user : null);
     });
     return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as InstallPromptEvent);
+    };
+    const handleInstalled = () => setInstallPrompt(null);
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleInstalled);
+    };
   }, []);
 
   const loadReports = useCallback(async () => {
@@ -205,6 +221,13 @@ function App() {
     }
     if (copied) window.setTimeout(() => setStudentLinkCopied(false), 2200);
   }, [studentLink]);
+
+  const installApp = useCallback(async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    if (choice.outcome === "accepted") setInstallPrompt(null);
+  }, [installPrompt]);
 
   useEffect(() => {
     let cancelled = false;
@@ -432,6 +455,7 @@ function App() {
         <div className={`topbar-right ${phase === "playing" ? "game-topbar-right" : ""}`}>
           <span className="grade-pill"><span className="live-dot" /> TECNOLOGIA · 8º ANO</span>
           {phase !== "playing" && <button className="teacher-access-button" onClick={() => setPhase("teacher")}>{teacherUser ? "Painel do professor" : "Área do professor"}<span>↗</span></button>}
+          {phase !== "playing" && installPrompt && <button className="install-app-button" onClick={() => void installApp}>Instalar aplicativo<span>↓</span></button>}
           {phase === "playing" && <button className="music-toggle" onClick={toggleMusic} aria-pressed={musicEnabled} aria-label={musicEnabled ? "Silenciar trilha sonora" : "Ativar trilha sonora"}><span aria-hidden="true">{musicEnabled ? "♫" : "♪"}</span><span>{musicEnabled ? "Som ligado" : "Som desligado"}</span></button>}
           {phase === "playing" && <span className="top-score"><span className="star">✳</span> {score.toLocaleString("pt-BR")}</span>}
         </div>

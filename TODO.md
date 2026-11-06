@@ -16,6 +16,7 @@
 - [x] **Relatório por trilha:** Cada tentativa do relatório agora detalha os acertos por trilha no formato acertos/total, preservando a nota final, o percentual e a data.
 - [x] **Relatório sanfonado por aluno:** O professor pode expandir cada aluno por uma seta, visualizar o número de tentativas e abrir o histórico de cada tentativa com nota final, acertos e erros em cada trilha.
 - [x] **Aplicativo PWA do Quiz:** A plataforma possui manifesto instalável, ícones do aplicativo, abertura em modo standalone e service worker para manter a interface e os assets essenciais disponíveis após o primeiro acesso.
+- [x] **Instalação guiada do PWA:** O cabeçalho captura o evento de instalação do navegador e exibe o botão "Instalar aplicativo" quando o dispositivo liberar o prompt nativo.
 
 - [x] **Imagens animadas por categoria:** Cada pergunta deve exibir um fundo ilustrado correspondente ao tema — organização digital, programação/algoritmos ou redes sociais/cultura digital — com movimento suave de deslocamento/zoom, sobreposição escura para manter a leitura e respeito a prefers-reduced-motion.
 - [x] **Acesso simplificado às trilhas:** As trilhas aparecem antes da identificação, têm ação clicável desde o primeiro contato e, quando necessário, levam o foco diretamente ao campo de turma ou nome que falta. Após a identificação, o aluno recebe uma confirmação clara para iniciar qualquer trilha.
