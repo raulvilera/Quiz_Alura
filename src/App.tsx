@@ -102,9 +102,18 @@ function App() {
   const currentRecord = current ? records.find((record) => record.question.id === current.id) : undefined;
 
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => setTeacherUser(data.session?.user ?? null));
+    void supabase.auth.getSession().then(async ({ data }) => {
+      const user = data.session?.user ?? null;
+      if (user && !user.email_confirmed_at) {
+        await supabase.auth.signOut();
+        setTeacherUser(null);
+        setTeacherError("Confirme seu e-mail antes de acessar o painel do professor.");
+        return;
+      }
+      setTeacherUser(user);
+    });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setTeacherUser(session?.user ?? null);
+      setTeacherUser(session?.user?.email_confirmed_at ? session.user : null);
     });
     return () => listener.subscription.unsubscribe();
   }, []);
@@ -134,8 +143,19 @@ function App() {
     const action = teacherMode === "login" ? supabase.auth.signInWithPassword({ email: teacherEmail.trim(), password: teacherPassword }) : supabase.auth.signUp({ email: teacherEmail.trim(), password: teacherPassword });
     const { data, error } = await action;
     if (error) setTeacherError(error.message.includes("Invalid login") ? "E-mail ou senha incorretos." : error.message);
-    else if (teacherMode === "signup" && !data.session) setTeacherNotice("Cadastro realizado. Confirme seu e-mail para liberar o acesso do professor.");
-    else setPhase("teacher");
+    else if (teacherMode === "signup") {
+      if (data.user && !data.user.email_confirmed_at) {
+        if (data.session) await supabase.auth.signOut();
+        setTeacherNotice("Cadastro realizado. Enviamos um link de confirmação para seu e-mail. Confirme a mensagem antes de entrar no painel.");
+      } else {
+        setPhase("teacher");
+      }
+    } else if (!data.user?.email_confirmed_at) {
+      await supabase.auth.signOut();
+      setTeacherError("Este e-mail ainda não foi confirmado. Verifique sua caixa de entrada e clique no link recebido.");
+    } else {
+      setPhase("teacher");
+    }
     setTeacherLoading(false);
   }, [teacherEmail, teacherMode, teacherPassword]);
 
@@ -393,7 +413,7 @@ function App() {
             <div className="teacher-auth-card">
               <p className="kicker"><span className="kicker-line" /> ÁREA RESTRITA</p>
               <h1>{teacherMode === "login" ? <>Entrar no <span className="highlight">painel.</span></> : <>Criar acesso de <span className="highlight">professor.</span></>}</h1>
-              <p className="teacher-copy">Acompanhe o desempenho dos alunos por tentativa, estudante e turma.</p>
+              <p className="teacher-copy">Acompanhe o desempenho dos alunos por tentativa, estudante e turma. O painel só será liberado depois da confirmação do seu e-mail.</p>
               <form className="teacher-form" onSubmit={teacherSubmit}>
                 <label htmlFor="teacher-email">E-mail</label><input id="teacher-email" type="email" value={teacherEmail} onChange={(event) => setTeacherEmail(event.target.value)} placeholder="professor@escola.com" required autoComplete="email" />
                 <label htmlFor="teacher-password">Senha</label><input id="teacher-password" type="password" value={teacherPassword} onChange={(event) => setTeacherPassword(event.target.value)} placeholder="Mínimo de 6 caracteres" minLength={6} required autoComplete={teacherMode === "login" ? "current-password" : "new-password"} />
