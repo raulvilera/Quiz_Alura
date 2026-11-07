@@ -314,7 +314,7 @@ function App() {
     const attemptKey = `${selectedClass}:${selectedStudent}:${round.map((question) => question.id).join(",")}:${records.length}`;
     savedAttemptRef.current = attemptKey;
     setSaveStatus("saving");
-    void supabase.from("quiz_attempts").insert({
+    const attemptPayload = {
       student_name: selectedStudent,
       class_name: selectedClass,
       score,
@@ -324,7 +324,18 @@ function App() {
       started_at: quizStartedAt,
       finished_at: new Date().toISOString(),
       answers: records.map(({ question, correct, timedOut, answeredAt }) => ({ question_id: question.id, category: question.category, correct, timed_out: Boolean(timedOut), answered_at: answeredAt })),
-    }).then(({ error }) => setSaveStatus(error ? "error" : "saved"));
+    };
+    void supabase.from("quiz_attempts").insert(attemptPayload).then(async ({ error }) => {
+      if (!error) {
+        setSaveStatus("saved");
+        return;
+      }
+      const legacyPayload = { ...attemptPayload };
+      delete (legacyPayload as Partial<typeof attemptPayload>).started_at;
+      delete (legacyPayload as Partial<typeof attemptPayload>).finished_at;
+      const retry = await supabase.from("quiz_attempts").insert(legacyPayload);
+      setSaveStatus(retry.error ? "error" : "saved");
+    });
   }, [correctCount, percent, phase, quizStartedAt, records, round, score, selectedClass, selectedStudent, total]);
 
   const toggleMusic = useCallback(() => {
