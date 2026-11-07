@@ -15,6 +15,7 @@
 - [x] **Exibição de notas:** O resultado do aluno mostra a nota final de 0 a 10, junto dos acertos, percentual e pontos; o relatório do professor também ganhou uma coluna específica para a nota.
 - [x] **Relatório por trilha:** Cada tentativa do relatório agora detalha os acertos por trilha no formato acertos/total, preservando a nota final, o percentual e a data.
 - [x] **Relatório sanfonado por aluno:** O professor pode expandir cada aluno por uma seta, visualizar o número de tentativas e abrir o histórico de cada tentativa com nota final, acertos e erros em cada trilha.
+- [x] **Questões por trilha no relatório:** Dentro de cada tentativa, o professor pode clicar em uma trilha para abrir uma segunda expansão com todas as questões daquela trilha, identificadas visualmente como acertadas ou erradas.
 - [x] **Filtros de relatório por turma:** O painel possui botões "Todas as turmas", "8º Ano A" e "8º Ano B"; ao selecionar uma turma, a lista sanfonada mostra somente os alunos e tentativas correspondentes.
 - [x] **Identidade visual das turmas:** O botão "8º Ano A" usa azul escuro com texto branco em negrito; o botão "8º Ano B" usa vermelho escuro com texto branco em negrito, incluindo estados de foco e seleção.
 - [x] **Horários por trilha:** Cada nova tentativa registra o início do quiz e o horário de cada resposta; o relatório mostra, em cada trilha, a data, o início e o término. Tentativas anteriores sem esses dados são identificadas como indisponíveis.
