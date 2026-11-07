@@ -524,7 +524,7 @@ function App() {
           <div className="hero-grid">
             <div className="hero-copy">
               <p className="kicker"><span className="kicker-line" /> {t("APRENDER É JOGAR", "УЧИТЬСЯ — ЭТО ИГРАТЬ")}</p>
-              <h1>{t("Ваш следующий уровень начинается", "Твой следующий уровень начинается")} <span className="highlight">{t("здесь.", "здесь.")}</span></h1>
+              <h1>{t("Seu próximo nível começa", "Твой следующий уровень начинается")} <span className="highlight">{t("aqui.", "здесь.")}</span></h1>
               <p className="hero-sub">{t("Tecnologia, lógica e cultura digital — um desafio de cada vez. Escolha sua trilha e mostre o que sabe.", "Технологии, логика и цифровая культура — одно задание за раз. Выбери тему и покажи свои знания.")}</p>
               <div className="hero-stats">
                 <div><strong>35</strong><span>{t("questões", "вопросов")}</span></div><b className="stat-divider" /><div><strong>01</strong><span>{t("acesso", "доступ")}</span></div><b className="stat-divider" /><div><strong>∞</strong><span>{t("tentativas", "попыток")}</span></div>
