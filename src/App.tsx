@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { User } from "@supabase/supabase-js";
 import { questions, type Question } from "./data/questions";
+import { russianQuestionText } from "./data/russian";
 import { supabase } from "./supabase";
 import "./styles.css";
 
@@ -103,6 +104,11 @@ function App() {
   const savedAttemptRef = useRef<string | null>(null);
 
   const current = round[index];
+  const isZlata = selectedStudent.trim().toLocaleUpperCase("pt-BR").includes("ZLATA");
+  const localizedCurrent = current && isZlata ? { ...current, ...russianQuestionText[current.id] } : current;
+  const russianCategory: Record<Question["category"], string> = { "Organização digital": "Цифровая организация", "Programação e algoritmos": "Программирование и алгоритмы", "Redes sociais e cultura digital": "Социальные сети и цифровая культура" };
+  const visibleCategory = current && isZlata ? russianCategory[current.category] : current?.category;
+  const t = (portuguese: string, russian: string) => isZlata ? russian : portuguese;
   const total = round.length;
   const progress = total ? ((index + (revealed ? 1 : 0)) / total) * 100 : 0;
   const correctCount = records.filter((record) => record.correct).length;
@@ -467,10 +473,10 @@ function App() {
           <span className="brand-text">DESAFIO<span>DIGITAL</span></span>
         </button>
         <div className={`topbar-right ${phase === "playing" ? "game-topbar-right" : ""}`}>
-          <span className="grade-pill"><span className="live-dot" /> TECNOLOGIA · 8º ANO</span>
-          {phase !== "playing" && <button className="teacher-access-button" onClick={() => setPhase("teacher")}>{teacherUser ? "Painel do professor" : "Área do professor"}<span>↗</span></button>}
+          <span className="grade-pill"><span className="live-dot" /> {t("TECNOLOGIA · 8º ANO", "ТЕХНОЛОГИИ · 8-Й КЛАСС")}</span>
+          {phase !== "playing" && <button className="teacher-access-button" onClick={() => setPhase("teacher")}>{teacherUser ? t("Painel do professor", "Панель учителя") : t("Área do professor", "Раздел учителя")}<span>↗</span></button>}
           {phase !== "playing" && installPrompt && <button className="install-app-button" onClick={() => void installApp}>Instalar aplicativo<span>↓</span></button>}
-          {phase === "playing" && <button className="music-toggle" onClick={toggleMusic} aria-pressed={musicEnabled} aria-label={musicEnabled ? "Silenciar trilha sonora" : "Ativar trilha sonora"}><span aria-hidden="true">{musicEnabled ? "♫" : "♪"}</span><span>{musicEnabled ? "Som ligado" : "Som desligado"}</span></button>}
+          {phase === "playing" && <button className="music-toggle" onClick={toggleMusic} aria-pressed={musicEnabled} aria-label={musicEnabled ? t("Silenciar trilha sonora", "Выключить музыку") : t("Ativar trilha sonora", "Включить музыку")}><span aria-hidden="true">{musicEnabled ? "♫" : "♪"}</span><span>{musicEnabled ? t("Som ligado", "Звук включён") : t("Som desligado", "Звук выключен")}</span></button>}
           {phase === "playing" && <span className="top-score"><span className="star">✳</span> {score.toLocaleString("pt-BR")}</span>}
         </div>
       </header>
@@ -506,11 +512,11 @@ function App() {
         <section className="home-page">
           <div className="hero-grid">
             <div className="hero-copy">
-              <p className="kicker"><span className="kicker-line" /> APRENDER É JOGAR</p>
-              <h1>Seu próximo<br />nível começa <span className="highlight">aqui.</span></h1>
-              <p className="hero-sub">Tecnologia, lógica e cultura digital — um desafio de cada vez. Escolha sua trilha e mostre o que sabe.</p>
+              <p className="kicker"><span className="kicker-line" /> {t("APRENDER É JOGAR", "УЧИТЬСЯ — ЭТО ИГРАТЬ")}</p>
+              <h1>{t("Ваш следующий уровень начинается", "Твой следующий уровень начинается")} <span className="highlight">{t("здесь.", "здесь.")}</span></h1>
+              <p className="hero-sub">{t("Tecnologia, lógica e cultura digital — um desafio de cada vez. Escolha sua trilha e mostre o que sabe.", "Технологии, логика и цифровая культура — одно задание за раз. Выбери тему и покажи свои знания.")}</p>
               <div className="hero-stats">
-                <div><strong>35</strong><span>questões</span></div><b className="stat-divider" /><div><strong>01</strong><span>acesso</span></div><b className="stat-divider" /><div><strong>∞</strong><span>tentativas</span></div>
+                <div><strong>35</strong><span>{t("questões", "вопросов")}</span></div><b className="stat-divider" /><div><strong>01</strong><span>{t("acesso", "доступ")}</span></div><b className="stat-divider" /><div><strong>∞</strong><span>{t("tentativas", "попыток")}</span></div>
               </div>
             </div>
             <div className="hero-art" aria-hidden="true">
@@ -522,71 +528,71 @@ function App() {
           </div>
 
           <div className="selection-heading">
-              <div><p className="section-eyebrow">ACESSO AO QUIZ</p><h2>Comece por aqui.</h2></div>
-              <p className="selection-note">Um único acesso para todas as questões.<br />Você pode tentar quantas vezes quiser.</p>
+              <div><p className="section-eyebrow">{t("ACESSO AO QUIZ", "ДОСТУП К ВИКТОРИНЕ")}</p><h2>{t("Comece por aqui.", "Начни здесь.")}</h2></div>
+              <p className="selection-note">{t("Um único acesso para todas as questões.", "Один доступ ко всем вопросам.")}<br />{t("Você pode tentar quantas vezes quiser.", "Можно пробовать столько раз, сколько захочешь.")}</p>
           </div>
           <div className="category-list" aria-label="Trilhas de aprendizagem">
             {categories.map((item, itemIndex) => (
               <button key={item.name} className={`category-card cat-${itemIndex}${itemIndex === 0 ? " featured" : ""}`} onClick={() => accessCategory(item.name)} aria-describedby="track-access-help">
                 <span className="category-icon">{item.mark}</span>
-                <span className="category-main"><span className="category-eyebrow">{item.eyebrow}</span><strong>Iniciar quiz completo</strong><span className="category-description">{item.description}</span></span>
-                <span className="category-meta"><strong>{item.count.toString().padStart(2, "0")}</strong><span>questões</span></span>
+                <span className="category-main"><span className="category-eyebrow">{t(item.eyebrow, "ПОЛНАЯ ВИКТОРИНА")}</span><strong>{t("Iniciar quiz completo", "Начать полную викторину")}</strong><span className="category-description">{t(item.description, "Все вопросы, с указанием темы в каждом вопросе.")}</span></span>
+                <span className="category-meta"><strong>{item.count.toString().padStart(2, "0")}</strong><span>{t("questões", "вопросов")}</span></span>
                 <span className="category-arrow" aria-hidden="true">↗</span>
               </button>
             ))}
           </div>
-          <p className="track-access-help" id="track-access-help">{selectedClass && selectedStudent && rosterStatus === "ready" ? "Pronto! Todas as questões estão liberadas." : "Clique no acesso e nós levaremos você direto ao passo que falta."}</p>
+          <p className="track-access-help" id="track-access-help">{selectedClass && selectedStudent && rosterStatus === "ready" ? t("Pronto! Todas as questões estão liberadas.", "Готово! Все вопросы доступны.") : t("Clique no acesso e nós levaremos você direto ao passo que falta.", "Нажми на доступ — мы перейдём к нужному шагу.")}</p>
           <section className="student-picker" ref={studentPickerRef} aria-labelledby="student-picker-title">
-            <div className="student-picker-heading"><p className="section-eyebrow">PARA LIBERAR A TRILHA</p><h2 id="student-picker-title">Só falta identificar você.</h2><p>Escolha a turma e depois o seu nome. É rápido e feito uma única vez antes de jogar.</p></div>
+            <div className="student-picker-heading"><p className="section-eyebrow">{t("PARA LIBERAR A TRILHA", "ДЛЯ ДОСТУПА К ТЕМЕ")}</p><h2 id="student-picker-title">{t("Só falta identificar você.", "Нужно только представиться.")}</h2><p>{t("Escolha a turma e depois o seu nome. É rápido e feito uma única vez antes de jogar.", "Выбери класс, затем своё имя. Это быстро и нужно сделать один раз перед игрой.")}</p></div>
             <div className="student-picker-fields">
-              <div className="student-field"><label htmlFor="student-class">1. Sua turma</label><select ref={studentClassRef} id="student-class" value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)} required><option value="">Selecione a turma</option>{classOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
-              <div className="student-field"><label htmlFor="student-name">2. Seu nome</label><select ref={studentNameRef} id="student-name" value={selectedStudent} onChange={(event) => setSelectedStudent(event.target.value)} disabled={!selectedClass || rosterStatus !== "ready" || rosterNames.length === 0} required><option value="">{!selectedClass ? "Escolha primeiro a turma" : rosterStatus === "loading" ? "Carregando alunos…" : rosterStatus === "error" ? "Não foi possível carregar" : rosterNames.length ? "Selecione seu nome" : "Nenhum aluno encontrado"}</option>{rosterNames.map((name, nameIndex) => <option key={`${name}-${nameIndex}`} value={name}>{name}</option>)}</select></div>
+              <div className="student-field"><label htmlFor="student-class">1. {t("Sua turma", "Твой класс")}</label><select ref={studentClassRef} id="student-class" value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)} required><option value="">{t("Selecione a turma", "Выбери класс")}</option>{classOptions.map((item) => <option key={item.value} value={item.value}>{t(item.label, item.value.includes("A") ? "8-й класс A · День" : "8-й класс B · День")}</option>)}</select></div>
+              <div className="student-field"><label htmlFor="student-name">2. {t("Seu nome", "Твоё имя")}</label><select ref={studentNameRef} id="student-name" value={selectedStudent} onChange={(event) => setSelectedStudent(event.target.value)} disabled={!selectedClass || rosterStatus !== "ready" || rosterNames.length === 0} required><option value="">{!selectedClass ? t("Escolha primeiro a turma", "Сначала выбери класс") : rosterStatus === "loading" ? t("Carregando alunos…", "Загрузка учеников…") : rosterStatus === "error" ? t("Não foi possível carregar", "Не удалось загрузить") : rosterNames.length ? t("Selecione seu nome", "Выбери своё имя") : t("Nenhum aluno encontrado", "Ученики не найдены")}</option>{rosterNames.map((name, nameIndex) => <option key={`${name}-${nameIndex}`} value={name}>{name}</option>)}</select></div>
             </div>
-            <div className="roster-status" role="status" aria-live="polite">{rosterStatus === "loading" && <span>Buscando a lista da turma selecionada…</span>}{rosterStatus === "error" && <><span>Não foi possível carregar os nomes. Verifique a conexão e tente novamente.</span><button type="button" onClick={() => setRosterReload((value) => value + 1)}>Tentar novamente</button></>}{rosterStatus === "ready" && <span>{rosterNames.length} estudantes encontrados. Agora é só tocar em uma trilha.</span>}</div>
+            <div className="roster-status" role="status" aria-live="polite">{rosterStatus === "loading" && <span>{t("Buscando a lista da turma selecionada…", "Загружаем список выбранного класса…")}</span>}{rosterStatus === "error" && <><span>{t("Não foi possível carregar os nomes. Verifique a conexão e tente novamente.", "Не удалось загрузить имена. Проверь соединение и попробуй снова.")}</span><button type="button" onClick={() => setRosterReload((value) => value + 1)}>{t("Tentar novamente", "Попробовать снова")}</button></>}{rosterStatus === "ready" && <span>{rosterNames.length} {t("estudantes encontrados. Agora é só tocar em uma trilha.", "учеников найдено. Теперь выбери тему.")}</span>}</div>
           </section>
-          <footer className="home-footer"><span>FEITO PARA CURIOSOS DE TODAS AS IDEIAS</span><span>QUESTÕES DO CADERNO · 8º ANO</span></footer>
+          <footer className="home-footer"><span>{t("FEITO PARA CURIOSOS DE TODAS AS IDEIAS", "СОЗДАНО ДЛЯ ЛЮБОПЫТНЫХ")}</span><span>{t("QUESTÕES DO CADERNO · 8º ANO", "ВОПРОСЫ · 8-Й КЛАСС")}</span></footer>
         </section>
       )}
 
       {phase === "playing" && current && (
         <section className="game-page">
           <div className="game-toolbar">
-            <button className="back-button" onClick={() => setPhase("home")} aria-label="Voltar à seleção de categorias">← <span>Sair do desafio</span></button>
-            <div className="game-context"><span>TRILHA · {current.category}</span><i>·</i><span>QUESTÃO {String(index + 1).padStart(2, "0")} <em>/ {String(total).padStart(2, "0")}</em></span></div>
-            <div className={`timer ${remaining <= 10 ? "timer-urgent" : ""}`} role="timer" aria-live="off" aria-label={`${remaining} segundos restantes`}><span className="timer-icon">◷</span><strong>00:{String(remaining).padStart(2, "0")}</strong></div>
-            <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{currentRecord?.timedOut ? "O tempo desta questão acabou." : !revealed && [30, 20, 10, 5].includes(remaining) ? `Restam ${remaining} segundos para responder.` : ""}</span>
+            <button className="back-button" onClick={() => setPhase("home")} aria-label={t("Voltar à seleção de categorias", "Вернуться к выбору категорий")}>← <span>{t("Sair do desafio", "Выйти из задания")}</span></button>
+            <div className="game-context"><span>{t("TRILHA", "ТЕМА")} · {visibleCategory}</span><i>·</i><span>{t("QUESTÃO", "ВОПРОС")} {String(index + 1).padStart(2, "0")} <em>/ {String(total).padStart(2, "0")}</em></span></div>
+            <div className={`timer ${remaining <= 10 ? "timer-urgent" : ""}`} role="timer" aria-live="off" aria-label={t(`${remaining} segundos restantes`, `Осталось ${remaining} секунд`)}><span className="timer-icon">◷</span><strong>00:{String(remaining).padStart(2, "0")}</strong></div>
+            <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{currentRecord?.timedOut ? t("O tempo desta questão acabou.", "Время этого вопроса истекло.") : !revealed && [30, 20, 10, 5].includes(remaining) ? t(`Restam ${remaining} segundos para responder.`, `Осталось ${remaining} секунд для ответа.`) : ""}</span>
           </div>
           <div className="progress-track" role="progressbar" aria-label="Progresso do quiz" aria-valuenow={index + (revealed ? 1 : 0)} aria-valuemin={0} aria-valuemax={total}><span style={{ width: `${progress}%` }} /></div>
           <div className="game-layout">
-            <aside className="game-rail"><span className="rail-number">{String(index + 1).padStart(2, "0")}</span><span className="rail-divider" /><span className="rail-total">{String(total).padStart(2, "0")}</span><span className="rail-caption">QUESTÃO</span></aside>
+            <aside className="game-rail"><span className="rail-number">{String(index + 1).padStart(2, "0")}</span><span className="rail-divider" /><span className="rail-total">{String(total).padStart(2, "0")}</span><span className="rail-caption">{t("QUESTÃO", "ВОПРОС")}</span></aside>
             <article className="question-column">
-              <div className="question-meta"><span className="question-tag">{current.type === "open" ? "RESPOSTA ABERTA" : current.type === "boolean" ? "VERDADEIRO OU FALSO" : current.category.toUpperCase()}</span><span className="keyboard-hint">{current.type !== "open" && <><kbd>1</kbd>–<kbd>{current.options?.length}</kbd> para responder</>}</span></div>
-              <h1 ref={questionTitleRef} tabIndex={-1} className="question-title">{current.prompt}</h1>
+              <div className="question-meta"><span className="question-tag">{current.type === "open" ? t("RESPOSTA ABERTA", "ОТКРЫТЫЙ ОТВЕТ") : current.type === "boolean" ? t("VERDADEIRO OU FALSO", "ВЕРНО ИЛИ НЕВЕРНО") : visibleCategory?.toUpperCase()}</span><span className="keyboard-hint">{current.type !== "open" && <><kbd>1</kbd>–<kbd>{current.options?.length}</kbd> {t("para responder", "для ответа")}</>}</span></div>
+              <h1 ref={questionTitleRef} tabIndex={-1} className="question-title">{localizedCurrent?.prompt}</h1>
 
               {current.type === "open" ? (
                 <div className="open-answer-area">
                   {!revealed ? (
                     <>
-                      <label htmlFor="open-answer">Sua resposta</label>
-                      <textarea id="open-answer" value={typedAnswer} onChange={(event) => setTypedAnswer(event.target.value)} maxLength={600} placeholder="Escreva sua ideia com suas palavras…" />
-                      <div className="input-footer"><span>{typedAnswer.length}/600</span><button className="submit-answer" onClick={submitOpenAnswer} disabled={!typedAnswer.trim()}>Conferir resposta <span>→</span></button></div>
+                      <label htmlFor="open-answer">{t("Sua resposta", "Ваш ответ")}</label>
+                      <textarea id="open-answer" value={typedAnswer} onChange={(event) => setTypedAnswer(event.target.value)} maxLength={600} placeholder={t("Escreva sua ideia com suas palavras…", "Напишите свою мысль своими словами…")} />
+                      <div className="input-footer"><span>{typedAnswer.length}/600</span><button className="submit-answer" onClick={submitOpenAnswer} disabled={!typedAnswer.trim()}>{t("Conferir resposta", "Проверить ответ")} <span>→</span></button></div>
                     </>
                   ) : (
                     <div className="expected-answer">
-                      <span className="expected-label">RESPOSTA ESPERADA</span>
-                      <p>{current.expected}</p>
+                      <span className="expected-label">{t("RESPOSTA ESPERADA", "ОЖИДАЕМЫЙ ОТВЕТ")}</span>
+                      <p>{localizedCurrent?.expected}</p>
                       {openNeedsSelfReview ? (
                         <>
-                          <span className="self-check-label">Compare com o que você escreveu:</span>
-                          <div className="self-check-actions"><button onClick={() => selfReviewOpen(true)}>Minha resposta contemplou esses pontos</button><button onClick={() => selfReviewOpen(false)}>Vou revisar esse conteúdo</button></div>
+                          <span className="self-check-label">{t("Compare com o que você escreveu:", "Сравните со своим ответом:")}</span>
+                          <div className="self-check-actions"><button onClick={() => selfReviewOpen(true)}>{t("Minha resposta contemplou esses pontos", "Мой ответ содержит эти пункты")}</button><button onClick={() => selfReviewOpen(false)}>{t("Vou revisar esse conteúdo", "Я повторю этот материал")}</button></div>
                         </>
-                      ) : <span className="self-check-label">{currentRecord?.timedOut ? "O tempo acabou antes do envio." : "Autoavaliação registrada."}</span>}
+                      ) : <span className="self-check-label">{currentRecord?.timedOut ? t("O tempo acabou antes do envio.", "Время ответа истекло.") : t("Autoavaliação registrada.", "Самооценка сохранена.")}</span>}
                     </div>
                   )}
                 </div>
               ) : (
                 <div className={`answer-list ${current.options?.length === 2 ? "two-options" : ""}`}>
-                  {current.options?.map((option, optionIndex) => {
+                  {localizedCurrent?.options?.map((option, optionIndex) => {
                     const isSelected = selected === optionIndex;
                     const isRight = revealed && current.answer === optionIndex;
                     const isWrongSelected = revealed && isSelected && !isRight;
@@ -598,37 +604,37 @@ function App() {
                 </div>
               )}
 
-              {revealed && current.type !== "open" && <div className={`feedback-panel ${isCorrect ? "feedback-good" : "feedback-try"}`} role="status"><span className="feedback-symbol">{isCorrect ? "✓" : records[records.length - 1]?.timedOut ? "◷" : "↻"}</span><div className="feedback-copy"><strong>{records[records.length - 1]?.timedOut ? "O tempo acabou" : isCorrect ? "Boa! Você acertou." : "Quase! Vale aprender com essa."}</strong><p>{current.explanation}</p></div><button className="next-button" onClick={nextQuestion}>{index + 1 === total ? "Ver resultado" : "Próxima"}<span>→</span></button></div>}
-              {revealed && current.type === "open" && !openNeedsSelfReview && <div className={`feedback-panel ${currentRecord?.timedOut ? "feedback-try" : "feedback-good"}`} role="status"><span className="feedback-symbol">{currentRecord?.timedOut ? "◷" : "✓"}</span><div className="feedback-copy"><strong>{currentRecord?.timedOut ? "O tempo acabou." : "Resposta registrada."}</strong><p>{currentRecord?.timedOut ? "Confira os pontos esperados e use-os para revisar o tema." : "Sua autoavaliação foi incluída no placar. Compare sua ideia com os pontos esperados."}</p></div><button className="next-button" onClick={nextQuestion}>{index + 1 === total ? "Ver resultado" : "Próxima"}<span>→</span></button></div>}
+              {revealed && current.type !== "open" && <div className={`feedback-panel ${isCorrect ? "feedback-good" : "feedback-try"}`} role="status"><span className="feedback-symbol">{isCorrect ? "✓" : records[records.length - 1]?.timedOut ? "◷" : "↻"}</span><div className="feedback-copy"><strong>{records[records.length - 1]?.timedOut ? t("O tempo acabou", "Время истекло") : isCorrect ? t("Boa! Você acertou.", "Отлично! Правильный ответ.") : t("Quase! Vale aprender com essa.", "Почти! Стоит повторить этот материал.")}</strong><p>{localizedCurrent?.explanation}</p></div><button className="next-button" onClick={nextQuestion}>{index + 1 === total ? t("Ver resultado", "Посмотреть результат") : t("Próxima", "Далее")}<span>→</span></button></div>}
+              {revealed && current.type === "open" && !openNeedsSelfReview && <div className={`feedback-panel ${currentRecord?.timedOut ? "feedback-try" : "feedback-good"}`} role="status"><span className="feedback-symbol">{currentRecord?.timedOut ? "◷" : "✓"}</span><div className="feedback-copy"><strong>{currentRecord?.timedOut ? t("O tempo acabou.", "Время истекло.") : t("Resposta registrada.", "Ответ сохранён.")}</strong><p>{currentRecord?.timedOut ? t("Confira os pontos esperados e use-os para revisar o tema.", "Сравните с ожидаемыми пунктами и повторите тему.") : t("Sua autoavaliação foi incluída no placar.", "Ваша самооценка добавлена в результат.")}</p></div><button className="next-button" onClick={nextQuestion}>{index + 1 === total ? t("Ver resultado", "Посмотреть результат") : t("Próxima", "Далее")}<span>→</span></button></div>}
             </article>
             <aside className="score-rail"><span className="score-star">✳</span><span className="score-value">{score.toLocaleString("pt-BR")}</span><span className="score-caption">PONTOS</span><span className="score-line" /><span className="streak-icon">⚡</span><span className="streak-value">{streak}</span><span className="score-caption">SEGUIDAS</span></aside>
           </div>
-          <div className="game-bottom"><span><span className="live-dot" /> RITMO DE JOGO</span><span>+ PONTOS POR ACERTO · BÔNUS DE VELOCIDADE</span></div>
+          <div className="game-bottom"><span><span className="live-dot" /> {t("RITMO DE JOGO", "ТЕМП ИГРЫ")}</span><span>{t("+ PONTOS POR ACERTO · BÔNUS DE VELOCIDADE", "+ ОЧКОВ ЗА ПРАВИЛЬНЫЙ ОТВЕТ · БОНУС ЗА СКОРОСТЬ")}</span></div>
         </section>
       )}
 
       {phase === "result" && (
         <section className="result-page">
-          <p className="kicker"><span className="kicker-line" /> FIM DE JOGO</p>
+          <p className="kicker"><span className="kicker-line" /> {t("FIM DE JOGO", "ИГРА ОКОНЧЕНА")}</p>
           <div className="result-grid">
             <div className="result-main">
               <div className="result-badge">{percent >= 80 ? "✦" : percent >= 50 ? "✳" : "↗"}</div>
-              <p className="result-label">{percent >= 80 ? "VOCÊ MANDOU MUITO" : percent >= 50 ? "BOM CAMINHO" : "CADA TENTATIVA ENSINA"}</p>
+              <p className="result-label">{percent >= 80 ? t("VOCÊ MANDOU MUITO", "ОТЛИЧНЫЙ РЕЗУЛЬТАТ") : percent >= 50 ? t("BOM CAMINHO", "ХОРОШЕЕ НАЧАЛО") : t("CADA TENTATIVA ENSINA", "КАЖДАЯ ПОПЫТКА УЧИТ")}</p>
               <h1>{percent >= 80 ? <>Que <span className="highlight">jogada!</span></> : percent >= 50 ? <>Tá no <span className="highlight">caminho.</span></> : <>Vamos de <span className="highlight">novo?</span></>}</h1>
-              <p className="result-copy">{percent >= 80 ? "Seu conhecimento digital está afiado. Compartilhe essa conquista consigo mesmo e siga curioso." : "Revisar também faz parte do jogo. Veja onde pode fortalecer o que aprendeu e tente novamente."}</p>
-              <div className="result-actions"><button className="primary-button" onClick={() => startQuiz(category)}>Jogar novamente <span>↻</span></button><button className="text-button" onClick={() => setPhase("home")}>Voltar ao início <span>→</span></button></div>
-              <p className={`result-save-status result-save-${saveStatus}`} role="status">{saveStatus === "saving" ? "Salvando seu resultado…" : saveStatus === "saved" ? "Resultado enviado para o relatório do professor." : saveStatus === "error" ? "Não foi possível enviar este resultado agora." : ""}</p>
+              <p className="result-copy">{percent >= 80 ? t("Seu conhecimento digital está afiado. Compartilhe essa conquista consigo mesmo e siga curioso.", "Ваши цифровые знания на высоте. Продолжайте исследовать и учиться.") : t("Revisar também faz parte do jogo. Veja onde pode fortalecer o que aprendeu e tente novamente.", "Повторение — часть игры. Посмотрите, что можно улучшить, и попробуйте снова.")}</p>
+              <div className="result-actions"><button className="primary-button" onClick={() => startQuiz(category)}>{t("Jogar novamente", "Играть снова")} <span>↻</span></button><button className="text-button" onClick={() => setPhase("home")}>{t("Voltar ao início", "Вернуться в начало")} <span>→</span></button></div>
+              <p className={`result-save-status result-save-${saveStatus}`} role="status">{saveStatus === "saving" ? t("Salvando seu resultado…", "Сохраняем результат…") : saveStatus === "saved" ? t("Resultado enviado para o relatório do professor.", "Результат отправлен учителю.") : saveStatus === "error" ? t("Não foi possível enviar este resultado agora.", "Не удалось отправить результат.") : ""}</p>
             </div>
               <div className="result-card">
-              <span className="result-card-label">SEU RESULTADO</span><div className="grade-score">{grade}<span>/ 10</span></div><div className="score-subtitle">Nota final</div><div className="result-rule" /><div className="big-score">{score.toLocaleString("pt-BR")}<span>pts</span></div><div className="result-rule" />
-              <div className="stat-row"><span>Respostas certas</span><strong>{correctCount}<small> / {total}</small></strong></div>
-              <div className="stat-row"><span>Aproveitamento</span><strong>{percent}<small>%</small></strong></div>
+              <span className="result-card-label">{t("SEU RESULTADO", "ВАШ РЕЗУЛЬТАТ")}</span><div className="grade-score">{grade}<span>/ 10</span></div><div className="score-subtitle">{t("Nota final", "Итоговая оценка")}</div><div className="result-rule" /><div className="big-score">{score.toLocaleString("pt-BR")}<span>{t("pts", "очк.")}</span></div><div className="result-rule" />
+              <div className="stat-row"><span>{t("Respostas certas", "Правильные ответы")}</span><strong>{correctCount}<small> / {total}</small></strong></div>
+              <div className="stat-row"><span>{t("Aproveitamento", "Результат")}</span><strong>{percent}<small>%</small></strong></div>
               <div className="mini-progress"><span style={{ width: `${percent}%` }} /></div>
-              <div className="result-rule" /><span className="review-label">PARA REVISAR</span>
-              {groupedMisses.length ? groupedMisses.map(([name, missed]) => <div className="review-row" key={name}><span>{name}</span><strong>{missed}</strong></div>) : <p className="perfect-note">Tudo certo por aqui. Que tal outra trilha?</p>}
+              <div className="result-rule" /><span className="review-label">{t("PARA REVISAR", "ДЛЯ ПОВТОРЕНИЯ")}</span>
+              {groupedMisses.length ? groupedMisses.map(([name, missed]) => <div className="review-row" key={name}><span>{isZlata ? russianCategory[name as Question["category"]] : name}</span><strong>{missed}</strong></div>) : <p className="perfect-note">{t("Tudo certo por aqui. Que tal outra trilha?", "Всё отлично. Попробуете другую тему?")}</p>}
             </div>
           </div>
-          <footer className="home-footer"><span>DESAFIO DIGITAL · TECNOLOGIA E INOVAÇÃO</span><span>APRENDER É JOGAR</span></footer>
+          <footer className="home-footer"><span>{t("DESAFIO DIGITAL · TECNOLOGIA E INOVAÇÃO", "ЦИФРОВОЕ ЗАДАНИЕ · ТЕХНОЛОГИИ И ИННОВАЦИИ")}</span><span>{t("APRENDER É JOGAR", "УЧИТЬСЯ — ЭТО ИГРАТЬ")}</span></footer>
         </section>
       )}
     </main>
