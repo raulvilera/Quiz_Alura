@@ -17,6 +17,7 @@
 - [x] **Relatório sanfonado por aluno:** O professor pode expandir cada aluno por uma seta, visualizar o número de tentativas e abrir o histórico de cada tentativa com nota final, acertos e erros em cada trilha.
 - [x] **Filtros de relatório por turma:** O painel possui botões "Todas as turmas", "8º Ano A" e "8º Ano B"; ao selecionar uma turma, a lista sanfonada mostra somente os alunos e tentativas correspondentes.
 - [x] **Identidade visual das turmas:** O botão "8º Ano A" usa azul escuro com texto branco em negrito; o botão "8º Ano B" usa vermelho escuro com texto branco em negrito, incluindo estados de foco e seleção.
+- [x] **Horários por trilha:** Cada nova tentativa registra o início do quiz e o horário de cada resposta; o relatório mostra, em cada trilha, a data, o início e o término. Tentativas anteriores sem esses dados são identificadas como indisponíveis.
 - [x] **Aplicativo PWA do Quiz:** A plataforma possui manifesto instalável, ícones do aplicativo, abertura em modo standalone e service worker para manter a interface e os assets essenciais disponíveis após o primeiro acesso.
 - [x] **Instalação guiada do PWA:** O cabeçalho captura o evento de instalação do navegador e exibe o botão "Instalar aplicativo" quando o dispositivo liberar o prompt nativo.
 - [x] **Instalação no celular:** A interface não exibe mais a opção "Como instalar"; o cabeçalho mostra somente "Instalar aplicativo" quando o navegador liberar o prompt nativo.

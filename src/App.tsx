@@ -7,7 +7,7 @@ import "./styles.css";
 
 type Phase = "home" | "playing" | "result" | "teacher";
 type Category = "Tudo" | Question["category"];
-type AnswerRecord = { question: Question; correct: boolean; timedOut?: boolean };
+type AnswerRecord = { question: Question; correct: boolean; timedOut?: boolean; answeredAt: string };
 type RosterStatus = "idle" | "loading" | "ready" | "error";
 type TeacherMode = "login" | "signup";
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
@@ -19,7 +19,9 @@ type ReportRow = {
   total_questions: number;
   correct_answers: number;
   percentage: number;
-  answers: { category?: string; correct?: boolean }[];
+  answers: { category?: string; correct?: boolean; answered_at?: string }[];
+  started_at?: string;
+  finished_at?: string;
   created_at: string;
 };
 
@@ -95,6 +97,7 @@ function App() {
   const [studentLinkCopied, setStudentLinkCopied] = useState(false);
   const [studentLinkCopyError, setStudentLinkCopyError] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
+  const [quizStartedAt, setQuizStartedAt] = useState<string | null>(null);
   const studentLinkInputRef = useRef<HTMLInputElement>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const savedAttemptRef = useRef<string | null>(null);
@@ -291,6 +294,7 @@ function App() {
     setRecords([]);
     setStreak(0);
     setSaveStatus("idle");
+    setQuizStartedAt(new Date().toISOString());
     savedAttemptRef.current = null;
     if (musicEnabled && musicRef.current) {
       musicRef.current.volume = 0.18;
@@ -311,9 +315,11 @@ function App() {
       total_questions: total,
       correct_answers: correctCount,
       percentage: percent,
-      answers: records.map(({ question, correct, timedOut }) => ({ question_id: question.id, category: question.category, correct, timed_out: Boolean(timedOut) })),
+      started_at: quizStartedAt,
+      finished_at: new Date().toISOString(),
+      answers: records.map(({ question, correct, timedOut, answeredAt }) => ({ question_id: question.id, category: question.category, correct, timed_out: Boolean(timedOut), answered_at: answeredAt })),
     }).then(({ error }) => setSaveStatus(error ? "error" : "saved"));
-  }, [correctCount, percent, phase, records, round, score, selectedClass, selectedStudent, total]);
+  }, [correctCount, percent, phase, quizStartedAt, records, round, score, selectedClass, selectedStudent, total]);
 
   const toggleMusic = useCallback(() => {
     const audio = musicRef.current;
@@ -346,7 +352,7 @@ function App() {
     setSelected(option);
     setRevealed(true);
     const correct = option === current.answer;
-    setRecords((previous) => [...previous, { question: current, correct }]);
+    setRecords((previous) => [...previous, { question: current, correct, answeredAt: new Date().toISOString() }]);
     if (correct) {
       setScore((previous) => previous + 1000 + remaining * 10);
       setStreak((previous) => previous + 1);
@@ -363,7 +369,7 @@ function App() {
 
   const selfReviewOpen = useCallback((correct: boolean) => {
     if (!current || !openNeedsSelfReview) return;
-    setRecords((previous) => [...previous, { question: current, correct }]);
+    setRecords((previous) => [...previous, { question: current, correct, answeredAt: new Date().toISOString() }]);
     if (correct) {
       setScore((previous) => previous + 1000 + remaining * 10);
       setStreak((previous) => previous + 1);
@@ -379,7 +385,7 @@ function App() {
     setRevealed(true);
     setOpenNeedsSelfReview(false);
     setStreak(0);
-    setRecords((previous) => [...previous, { question: current, correct: false, timedOut: true }]);
+    setRecords((previous) => [...previous, { question: current, correct: false, timedOut: true, answeredAt: new Date().toISOString() }]);
   }, [current, revealed]);
 
   useEffect(() => {
@@ -414,11 +420,11 @@ function App() {
   }), [reports]);
 
   const trackSummary = useCallback((answers: ReportRow["answers"]) => {
-    const summary = new Map<string, { correct: number; total: number }>();
+    const summary = new Map<string, { correct: number; total: number; startedAt?: string; finishedAt?: string }>();
     (answers ?? []).forEach((answer) => {
       const categoryName = answer.category || "Trilha não identificada";
       const currentSummary = summary.get(categoryName) ?? { correct: 0, total: 0 };
-      summary.set(categoryName, { correct: currentSummary.correct + (answer.correct ? 1 : 0), total: currentSummary.total + 1 });
+      summary.set(categoryName, { correct: currentSummary.correct + (answer.correct ? 1 : 0), total: currentSummary.total + 1, startedAt: currentSummary.startedAt ?? answer.answered_at, finishedAt: answer.answered_at ?? currentSummary.finishedAt });
     });
     return [...summary.entries()];
   }, []);
@@ -490,7 +496,7 @@ function App() {
               <div className="teacher-heading"><div><p className="kicker"><span className="kicker-line" /> PAINEL DO PROFESSOR</p><h1>Desempenho da <span className="highlight">turma.</span></h1><p>Resultados registrados pelos alunos no quiz completo.</p></div><div className="teacher-actions"><span>{teacherUser.email}</span><button className="text-button" onClick={teacherSignOut}>Sair <span>↗</span></button></div></div>
               <div className="student-link-card"><div><p className="section-eyebrow">ACESSO DOS ALUNOS</p><h2>Compartilhe o link do quiz</h2><p>Envie este endereço para os alunos. Eles entrarão diretamente na identificação da turma e do nome.</p></div><div className="student-link-actions"><input ref={studentLinkInputRef} aria-label="Link de acesso dos alunos" value={studentLink} readOnly onFocus={(event) => event.currentTarget.select()} /><button type="button" className={`primary-button copy-link-button${studentLinkCopied ? " copy-link-button-copied" : ""}`} onClick={() => void copyStudentLink} aria-live="polite">{studentLinkCopied ? "Link copiado" : studentLinkCopyError ? "Link selecionado" : "Copiar link"}<span>{studentLinkCopied ? "✓" : "↗"}</span></button><a className="text-button" href={studentLink} target="_blank" rel="noreferrer">Abrir área dos alunos <span>↗</span></a>{studentLinkCopied && <span className="copy-link-notification" role="status">✓ Link copiado para a área de transferência.</span>}{studentLinkCopyError && <span className="student-link-error" role="alert">O navegador bloqueou a cópia automática. O link foi selecionado; pressione Ctrl+C para copiar.</span>}</div></div>
               <div className="teacher-summary">{classSummary.map((item) => <article className="teacher-summary-card" key={item.value}><span>{item.label}</span><strong>{item.average}%</strong><small>{item.attempts} tentativas · {item.students} alunos</small></article>)}</div>
-              <div className="report-card"><div className="report-card-heading"><div><p className="section-eyebrow">VISÃO INDIVIDUAL</p><h2>Desempenho por aluno</h2><p className="report-helper">Clique na seta ao lado do nome para ver todas as tentativas, notas e acertos por trilha.</p></div><button className="text-button" onClick={() => void loadReports()}>Atualizar <span>↻</span></button></div><div className="report-class-filters" role="group" aria-label="Filtrar relatórios por turma"><button type="button" className={reportClassFilter === "TODAS" ? "is-active" : ""} onClick={() => { setReportClassFilter("TODAS"); setExpandedReportStudent(null); }}>Todas as turmas</button><button type="button" className={`class-filter-a${reportClassFilter === "8º ANO A TARDE" ? " is-active" : ""}`} onClick={() => { setReportClassFilter("8º ANO A TARDE"); setExpandedReportStudent(null); }}>8º Ano A</button><button type="button" className={`class-filter-b${reportClassFilter === "8º ANO B TARDE" ? " is-active" : ""}`} onClick={() => { setReportClassFilter("8º ANO B TARDE"); setExpandedReportStudent(null); }}>8º Ano B</button></div>{reportsLoading ? <p className="report-empty">Carregando resultados…</p> : reportsError ? <p className="teacher-message teacher-error">{reportsError}</p> : filteredReports.length === 0 ? <p className="report-empty">Ainda não há tentativas registradas para esta turma.</p> : <div className="student-report-list">{studentReportGroups.map((group) => { const groupKey = `${group.className}:${group.studentName}`; const expanded = expandedReportStudent === groupKey; return <div className={`student-report-group${expanded ? " is-expanded" : ""}`} key={groupKey}><button type="button" className="student-report-toggle" onClick={() => setExpandedReportStudent(expanded ? null : groupKey)} aria-expanded={expanded}><span className="student-report-arrow">›</span><span className="student-report-name"><strong>{group.studentName}</strong><small>{group.className.replace("8º ANO ", "")}</small></span><span className="student-attempt-count"><strong>{group.reports.length}</strong><small>{group.reports.length === 1 ? "tentativa" : "tentativas"}</small></span></button>{expanded && <div className="student-report-details">{group.reports.map((report, reportIndex) => <article className="attempt-detail" key={report.id}><div className="attempt-heading"><div><span className="section-eyebrow">TENTATIVA {group.reports.length - reportIndex}</span><strong>{new Date(report.created_at).toLocaleDateString("pt-BR")}</strong></div><div className="attempt-result"><span className="report-grade">{(report.percentage / 10).toFixed(1).replace(".", ",")}</span><small>nota final · {report.percentage}%</small></div></div><div className="attempt-tracks">{trackSummary(report.answers).map(([categoryName, summary]) => <div className="attempt-track" key={categoryName}><span><b>{categoryName}</b><em>{summary.correct}/{summary.total}</em></span><small>{summary.correct} acerto{summary.correct === 1 ? "" : "s"} · {summary.total - summary.correct} erro{summary.total - summary.correct === 1 ? "" : "s"}</small><div className="mini-progress"><span style={{ width: `${summary.total ? (summary.correct / summary.total) * 100 : 0}%` }} /></div></div>)}</div></article>)}</div>}</div>; })}</div>}</div>
+              <div className="report-card"><div className="report-card-heading"><div><p className="section-eyebrow">VISÃO INDIVIDUAL</p><h2>Desempenho por aluno</h2><p className="report-helper">Clique na seta ao lado do nome para ver todas as tentativas, notas e acertos por trilha.</p></div><button className="text-button" onClick={() => void loadReports()}>Atualizar <span>↻</span></button></div><div className="report-class-filters" role="group" aria-label="Filtrar relatórios por turma"><button type="button" className={reportClassFilter === "TODAS" ? "is-active" : ""} onClick={() => { setReportClassFilter("TODAS"); setExpandedReportStudent(null); }}>Todas as turmas</button><button type="button" className={`class-filter-a${reportClassFilter === "8º ANO A TARDE" ? " is-active" : ""}`} onClick={() => { setReportClassFilter("8º ANO A TARDE"); setExpandedReportStudent(null); }}>8º Ano A</button><button type="button" className={`class-filter-b${reportClassFilter === "8º ANO B TARDE" ? " is-active" : ""}`} onClick={() => { setReportClassFilter("8º ANO B TARDE"); setExpandedReportStudent(null); }}>8º Ano B</button></div>{reportsLoading ? <p className="report-empty">Carregando resultados…</p> : reportsError ? <p className="teacher-message teacher-error">{reportsError}</p> : filteredReports.length === 0 ? <p className="report-empty">Ainda não há tentativas registradas para esta turma.</p> : <div className="student-report-list">{studentReportGroups.map((group) => { const groupKey = `${group.className}:${group.studentName}`; const expanded = expandedReportStudent === groupKey; return <div className={`student-report-group${expanded ? " is-expanded" : ""}`} key={groupKey}><button type="button" className="student-report-toggle" onClick={() => setExpandedReportStudent(expanded ? null : groupKey)} aria-expanded={expanded}><span className="student-report-arrow">›</span><span className="student-report-name"><strong>{group.studentName}</strong><small>{group.className.replace("8º ANO ", "")}</small></span><span className="student-attempt-count"><strong>{group.reports.length}</strong><small>{group.reports.length === 1 ? "tentativa" : "tentativas"}</small></span></button>{expanded && <div className="student-report-details">{group.reports.map((report, reportIndex) => <article className="attempt-detail" key={report.id}><div className="attempt-heading"><div><span className="section-eyebrow">TENTATIVA {group.reports.length - reportIndex}</span><strong>{new Date(report.created_at).toLocaleDateString("pt-BR")}</strong></div><div className="attempt-result"><span className="report-grade">{(report.percentage / 10).toFixed(1).replace(".", ",")}</span><small>nota final · {report.percentage}%</small></div></div><div className="attempt-tracks">{trackSummary(report.answers).map(([categoryName, summary]) => <div className="attempt-track" key={categoryName}><span><b>{categoryName}</b><em>{summary.correct}/{summary.total}</em></span><small>{summary.correct} acerto{summary.correct === 1 ? "" : "s"} · {summary.total - summary.correct} erro{summary.total - summary.correct === 1 ? "" : "s"}</small><time className="track-time">{summary.startedAt ? <>Início: {new Date(summary.startedAt).toLocaleString("pt-BR")}<br />Término: {summary.finishedAt ? new Date(summary.finishedAt).toLocaleString("pt-BR") : "não disponível"}</> : "Horários não disponíveis para esta tentativa"}</time><div className="mini-progress"><span style={{ width: `${summary.total ? (summary.correct / summary.total) * 100 : 0}%` }} /></div></div>)}</div></article>)}</div>}</div>; })}</div>}</div>
             </>
           )}
         </section>
